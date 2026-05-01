@@ -1,0 +1,130 @@
+# Hokora Node Configuration — canonical example
+#
+# Copy this to ~/.hokora/hokora.toml (or $DATA_DIR/hokora.toml) and customise.
+# Every field below has an environment-variable overlay: HOKORA_<FIELD_NAME_UPPER>.
+# Fields left commented use the in-code default shown.
+#
+# After editing, ensure mode 0o600:
+#     chmod 0600 ~/.hokora/hokora.toml
+#
+# Full reference: docs/runbooks/02-configuration.md
+
+
+# -----------------------------------------------------------------------------
+# Node identity and transport
+# -----------------------------------------------------------------------------
+
+node_name        = "My Hokora Node"
+# node_description = ""
+# data_dir         = "~/.hokora"
+# identity_dir     = "$DATA_DIR/identities"
+# rns_config_dir   = ""                        # default: ~/.reticulum
+
+
+# -----------------------------------------------------------------------------
+# Database and media
+# -----------------------------------------------------------------------------
+# SQLCipher encryption is the default and strongly recommended for community
+# nodes in production. `--no-db-encrypt` is an opt-out for relay nodes or labs.
+
+db_encrypt = true
+db_key     = "CHANGE-ME-generate-with-openssl-rand-hex-32"
+
+# db_path                   = "$DATA_DIR/hokora.db"
+# media_dir                 = "$DATA_DIR/media"
+# max_upload_bytes          = 5242880                # 5 MB per file
+# max_storage_bytes         = 1073741824             # 1 GB per channel
+# max_global_storage_bytes  = 10737418240            # 10 GB total
+
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+
+# log_level      = "INFO"     # DEBUG | INFO | WARNING | ERROR
+# log_json       = false      # true recommended for fleet log aggregators
+# log_to_stdout  = false      # true under systemd/Docker so journald/docker logs capture output
+
+
+# -----------------------------------------------------------------------------
+# Announce, retention, UI
+# -----------------------------------------------------------------------------
+
+announce_enabled       = true
+announce_interval      = 600                   # seconds
+default_channel_name   = "general"
+
+# retention_days         = 0                   # 0 = unlimited
+# metadata_scrub_days    = 0                   # 0 = disabled; otherwise null sender_hash after N days
+# enable_fts             = true
+# max_sync_limit         = 100
+# show_private_channels  = true                # Discord-style: non-members see names but not content
+
+
+# -----------------------------------------------------------------------------
+# Rate limiting (per-identity token bucket)
+# -----------------------------------------------------------------------------
+
+rate_limit_tokens = 10
+rate_limit_refill = 1.0                        # tokens per second
+
+
+# -----------------------------------------------------------------------------
+# Federation and trust
+# -----------------------------------------------------------------------------
+
+# require_signed_federation      = true        # enforce Ed25519 handshake on peer federation
+# federation_auto_trust          = false       # dangerous outside closed trusted meshes
+# federation_push_retry_interval = 60          # seconds between failed-push sweeps
+# federation_push_max_backoff    = 600         # cap on per-peer exponential backoff
+
+
+# -----------------------------------------------------------------------------
+# Forward secrecy (federation link encryption)
+# -----------------------------------------------------------------------------
+
+# fs_enabled                  = true
+# fs_epoch_duration           = 3600           # epoch rotation period (seconds)
+# fs_min_epoch_duration       = 300            # minimum accepted from a peer
+# fs_max_epoch_duration       = 86400          # maximum accepted from a peer
+# fs_rotation_max_retries     = 3
+# fs_rotation_initial_backoff = 30
+
+
+# -----------------------------------------------------------------------------
+# CDSP (Client-Declared Sync Profiles)
+# -----------------------------------------------------------------------------
+
+# cdsp_enabled              = true
+# cdsp_session_timeout      = 3600
+# cdsp_init_timeout         = 5
+# cdsp_deferred_queue_limit = 1000
+# cdsp_default_profile      = 1                # 1=FULL 2=PRIORITIZED 3=MINIMAL 4=BATCHED
+
+
+# -----------------------------------------------------------------------------
+# Observability and heartbeat
+# -----------------------------------------------------------------------------
+# The observability HTTP listener binds 127.0.0.1 only in source. To expose
+# metrics externally, front with an authenticated reverse proxy. See
+# docs/runbooks/09-monitoring-observability.md.
+
+# heartbeat_enabled    = true
+# heartbeat_interval_s = 30.0
+# observability_enabled = true
+# observability_port    = 8421
+
+
+# -----------------------------------------------------------------------------
+# Relay propagation (relay nodes only — community nodes ignore these)
+# -----------------------------------------------------------------------------
+# Uncomment the following block when running a relay/seed node. Set relay_only
+# to true and disable db_encrypt above (relay nodes have no database).
+
+# relay_only                     = true
+# propagation_enabled            = true
+# propagation_storage_mb         = 500
+# propagation_static_peers       = []
+# propagation_autopeer           = true
+# propagation_autopeer_maxdepth  = 4
+# propagation_max_peers          = 20

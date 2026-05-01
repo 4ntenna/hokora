@@ -1,0 +1,13 @@
+[reticulum]
+  # Override default "default" so the daemon does not attach to a host
+  # @rns/default if compose ever runs with network_mode: host.
+  instance_name = hokora_demo_b
+  enable_transport = Yes
+  share_instance = Yes
+
+[interfaces]
+  [[TCP Client]]
+    type = TCPClientInterface
+    enabled = yes
+    target_host = node-a
+    target_port = 4242

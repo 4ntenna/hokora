@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# Two-node federation lab. Run from the repo root:
+#
+#     docker compose -f examples/two-node-federation/docker-compose.yml up -d
+#
+# Both daemons sit on a private bridge network and talk over RNS TCP.
+# No ports are published to the host. This stack verifies that two
+# daemons start healthy on a shared Reticulum bridge; it does not by
+# itself assert federation peering or message mirroring (use the
+# multinode pytest suite under tests/multinode/ for that).
+services:
+  node-a:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.full
+    container_name: hokora-node-a
+    restart: unless-stopped
+    environment:
+      HOKORA_NODE_NAME: "NodeA"
+      HOKORA_LOG_LEVEL: "DEBUG"
+      HOKORA_ANNOUNCE_INTERVAL: "15"
+      HOKORA_DB_ENCRYPT: "${HOKORA_DB_ENCRYPT:-true}"
+    volumes:
+      - hokora-node-a-data:/data/hokora
+      - ../../tests/live/docker_rns_a:/etc/rns:ro
+    networks:
+      - hokora-net
+    mem_limit: 512m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8421/health/live')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  node-b:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.full
+    container_name: hokora-node-b
+    restart: unless-stopped
+    environment:
+      HOKORA_NODE_NAME: "NodeB"
+      HOKORA_LOG_LEVEL: "DEBUG"
+      HOKORA_ANNOUNCE_INTERVAL: "15"
+      HOKORA_DB_ENCRYPT: "${HOKORA_DB_ENCRYPT:-true}"
+    volumes:
+      - hokora-node-b-data:/data/hokora
+      - ../../tests/live/docker_rns_b:/etc/rns:ro
+    depends_on:
+      node-a:
+        condition: service_healthy
+    networks:
+      - hokora-net
+    mem_limit: 512m
+    cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8421/health/live')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  hokora-node-a-data:
+  hokora-node-b-data:
+
+networks:
+  hokora-net:
+    driver: bridge

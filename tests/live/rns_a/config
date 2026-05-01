@@ -1,0 +1,13 @@
+[reticulum]
+  # Override default "default" so rnsd does not attach to @rns/default and
+  # leak this node onto the host's RNS transport.
+  instance_name = hokora_demo_a
+  enable_transport = Yes
+  share_instance = Yes
+
+[interfaces]
+  [[TCP Server]]
+    type = TCPServerInterface
+    enabled = yes
+    listen_ip = 127.0.0.1
+    listen_port = 4242

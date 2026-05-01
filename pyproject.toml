@@ -1,0 +1,149 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hokora"
+version = "0.1.0"
+description = "Hokora — federated encrypted social platform on Reticulum/LXMF"
+requires-python = ">=3.10"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [
+    { name = "4ntenna", email = "4ntenn@proton.me" },
+    { name = "The Hokora Project" },
+]
+classifiers = [
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+]
+dependencies = [
+    "rns>=1.1.9,<2.0",
+    "lxmf>=0.9.6,<1.0",
+    "msgpack>=1.0,<2.0",
+    "sqlalchemy[asyncio]>=2.0,<3.0",
+    "aiosqlite>=0.19,<1.0",
+    "click>=8.0,<9.0",
+    "pydantic>=2.0,<3.0",
+    "cryptography>=46.0.6,<48.0",
+    "sqlcipher3>=0.5.0,<1.0",
+    "pynacl>=1.5,<2.0",
+    "tomli>=2.0,<3.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+tui = ["urwid>=2.0,<3.0"]
+i2p = ["i2plib>=0.0.13,<1.0"]
+dev = [
+    "pytest>=9.0.3,<10.0",
+    "pytest-asyncio>=1.0,<2.0",
+    "pytest-cov>=4,<8",
+    "pytest-timeout>=2.3,<3.0",
+    "ruff>=0.1,<1.0",
+    "alembic>=1.12,<2.0",
+    "httpx>=0.24,<1.0",
+]
+
+[project.scripts]
+hokora = "hokora.cli.main:cli"
+hokorad = "hokora.__main__:main"
+hokora-tui = "hokora_tui.app:main"
+hokora-tui-keyfile = "hokora_tui.cli.keyfile:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/hokora", "src/hokora_tui"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+addopts = ["--strict-markers", "--strict-config"]
+xfail_strict = true
+timeout = 60
+markers = [
+    "load: long-running scenarios; gated to its own CI job (--timeout=120)",
+]
+
+[tool.coverage.run]
+source = ["src/hokora", "src/hokora_tui"]
+branch = true
+omit = [
+    "*/__pycache__/*",
+    "*/tests/*",
+    # Entry shims — exercised by integration not unit; their coverage is
+    # not actionable.
+    "src/hokora/__main__.py",
+    "src/hokora_tui/__main__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+strict_optional = true
+warn_unused_ignores = true
+warn_return_any = true
+# Lenient start — tighten incrementally as the codebase stabilises. The
+# `files` list below is the type-checked perimeter: modules that were
+# authored or refactored with full type hints. Extend as additional
+# modules reach the same standard.
+disallow_untyped_defs = false
+disallow_any_explicit = false
+check_untyped_defs = true
+files = [
+    # daemon.py extractions
+    "src/hokora/core/pid_file.py",
+    "src/hokora/core/sealed_bootstrap.py",
+    "src/hokora/core/lxmf_ingestor.py",
+    "src/hokora/core/logging_config.py",
+    "src/hokora/federation/mirror_ingestor.py",
+    "src/hokora/federation/handshake_orchestrator.py",
+    "src/hokora/security/sealed_invariant.py",
+    # sync_engine.py extractions
+    "src/hokora_tui/sync/state.py",
+    "src/hokora_tui/sync/link_manager.py",
+    "src/hokora_tui/sync/reconnect_scheduler.py",
+    "src/hokora_tui/sync/dm_router.py",
+    "src/hokora_tui/sync/cdsp_client.py",
+    "src/hokora_tui/sync/history_client.py",
+    "src/hokora_tui/sync/query_client.py",
+    "src/hokora_tui/sync/invite_client.py",
+    "src/hokora_tui/sync/rich_message_client.py",
+    "src/hokora_tui/sync/media_client.py",
+    # commands.py framework extraction (framework only; per-command
+    # modules close over app state and are still being cleaned up).
+    "src/hokora_tui/commands/_base.py",
+    "src/hokora_tui/commands/router.py",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "RNS",
+    "RNS.*",
+    "LXMF",
+    "LXMF.*",
+    "urwid",
+    "urwid.*",
+    "sqlcipher3",
+    "sqlcipher3.*",
+    "msgpack",
+    "slowapi",
+    "slowapi.*",
+    "aiosqlite",
+    "aiosqlite.*",
+    "nacl",
+    "nacl.*",
+]
+ignore_missing_imports = true

@@ -1,0 +1,13 @@
+[Unit]
+Description=LXMF Propagation Daemon
+After=network.target rnsd.service
+
+[Service]
+Type=simple
+User=%USER%
+ExecStart=lxmd
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
