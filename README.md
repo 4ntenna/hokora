@@ -2,7 +2,8 @@
 
 **Federated, encrypted messaging with channels, threads, and roles for off-grid and low-bandwidth networks.**
 
-<img width="1366" height="679" alt="Screenshot_2026-04-30_20_54_00" src="https://github.com/user-attachments/assets/32ab6efe-a4b8-4abe-9fa4-6a1426a8f0ad" />
+<img width="1366" height="679" alt="Screenshot_2026-04-30_20_54_00" src="https://github.com/user-attachments/assets/9be08bf3-651e-40c5-9988-3ce5b6d207eb" />
+
 
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
@@ -15,7 +16,8 @@ Hokora runs over the [Reticulum](https://reticulum.network/) network stack and t
 
 ## What it is
 
-<img width="1366" height="684" alt="Screenshot_2026-04-30_20_53_40" src="https://github.com/user-attachments/assets/23fa3ee7-2ab6-467d-8e61-923945bc133a" />
+<img width="1366" height="684" alt="Screenshot_2026-04-30_20_53_40" src="https://github.com/user-attachments/assets/2e6bd933-ed38-4633-9e48-c11cf0c4179d" />
+
 
 
 
