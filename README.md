@@ -67,7 +67,7 @@ A **node** is either a *community node* (full daemon with channels, permissions,
 
 | Item | Value |
 |---|---|
-| Version | 0.1.0 |
+| Version | 0.1.1 |
 | Python | 3.10, 3.11, 3.12, 3.13 |
 | Reticulum | ≥ 1.1.9, < 2.0 |
 | LXMF | ≥ 0.9.6, < 1.0 |

@@ -455,8 +455,10 @@ class HokoraDaemon:
         )
         self.lxmf_bridge = LXMFBridge(
             self._lxmf_storagepath,
-            self._lxmf_ingestor.on_lxmf_delivery,
+            self._lxmf_ingestor.ingest,
             node_lxm_router=self.lxm_router,
+            loop=self.loop,
+            config=self.config,
         )
 
         # 9. Ensure built-in roles

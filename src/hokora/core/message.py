@@ -1,6 +1,17 @@
 # SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Message processing: ingestion pipeline and MessageEnvelope dataclass."""
+"""Message processing: ingestion pipeline and MessageEnvelope dataclass.
+
+Sender-binding invariant: every caller of ``MessageProcessor.ingest``
+MUST have verified ``envelope.sender_hash`` against a recovered Ed25519
+key upstream. The block-list, rate-limit, role and permission checks
+below all key on ``sender_hash`` and would be meaningless against a
+forgeable identity. Today the only direct caller is
+``LxmfMessageIngestor.ingest``, which is reached only via
+``LXMFBridge._validate_and_dispatch`` after ``verify_lxmf_inbound``
+succeeds. Federation push receive bypasses ``MessageProcessor`` and
+runs ``verify_sender_binding`` itself before ORM insert.
+"""
 
 import asyncio
 import hashlib

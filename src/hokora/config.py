@@ -91,6 +91,10 @@ class NodeConfig(BaseModel):
     # Federation
     federation_auto_trust: bool = False
     require_signed_federation: bool = True
+
+    # LXMF inbound
+    require_signed_lxmf: bool = True
+    lxmf_path_wait_seconds: float = 5.0
     federation_push_retry_interval: int = 60  # seconds between push retry sweeps
     federation_push_max_backoff: int = 600  # max backoff delay for failed push retries
     # Mirror health-check interval (N3 cold-start fix — bounded fallback
@@ -295,6 +299,22 @@ def load_config(config_path: Optional[Path] = None) -> NodeConfig:
             "SECURITY: federation_auto_trust=True with require_signed_federation=False. "
             "Federation peers will be accepted without signature verification."
         )
+
+    if not config.require_signed_lxmf:
+        logger.warning(
+            "SECURITY: require_signed_lxmf=False. Inbound LXMF channel "
+            "messages from unknown sources will be accepted without "
+            "structural sender binding; sender_hash becomes spoofable."
+        )
+
+    if config.lxmf_path_wait_seconds < 0:
+        config.lxmf_path_wait_seconds = 0.0
+    elif config.lxmf_path_wait_seconds > 30:
+        logger.warning(
+            "lxmf_path_wait_seconds=%.1f is unusually large; clamping to 30s.",
+            config.lxmf_path_wait_seconds,
+        )
+        config.lxmf_path_wait_seconds = 30.0
 
     # Warn when relay mode is enabled without propagation — usually an env-var footgun
     if config.relay_only and not config.propagation_enabled:

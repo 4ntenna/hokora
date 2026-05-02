@@ -5,14 +5,14 @@
 import time
 from unittest.mock import MagicMock
 
-import pytest
+import LXMF
 
 from hokora.core.message import MessageProcessor, MessageEnvelope
 from hokora.core.sequencer import SequenceManager
 from hokora.db.models import Channel
 from hokora.db.queries import ChannelRepo, MessageRepo
 from hokora.protocol.lxmf_bridge import LXMFBridge
-from hokora.exceptions import VerificationError
+from hokora.security.lxmf_inbound import reset_for_tests as reset_lxmf_inbound
 
 
 class TestLXMFIngestion:
@@ -49,15 +49,19 @@ class TestLXMFIngestion:
         assert retrieved.display_name == "TestUser"
 
     async def test_signature_rejection(self, tmp_path):
-        """Test that invalid signatures are rejected."""
+        """Invalid signatures are rejected and no envelope is dispatched."""
+        reset_lxmf_inbound()
         mock_msg = MagicMock()
         mock_msg.signature_validated = False
+        mock_msg.unverified_reason = LXMF.LXMessage.SIGNATURE_INVALID
         mock_msg.source_hash = b"\x01" * 16
 
-        bridge = LXMFBridge(base_storagepath=str(tmp_path))
+        callback = MagicMock()
+        bridge = LXMFBridge(base_storagepath=str(tmp_path), ingest_callback=callback)
 
-        with pytest.raises(VerificationError, match="signature"):
-            bridge._on_lxmf_delivery(mock_msg)
+        bridge._on_lxmf_delivery(mock_msg)
+
+        callback.assert_not_called()
 
     async def test_channel_lifecycle(self, session):
         """Test creating a channel and ingesting multiple messages."""
