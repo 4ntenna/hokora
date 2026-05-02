@@ -439,6 +439,44 @@ async def render_metrics(
     except Exception:
         pass
 
+    # LXMF inbound rejection + action counters. The action family
+    # captures every outcome; the rejection family carries the per-reason
+    # label for forensics. Both families are emitted at zero so a fresh
+    # scrape distinguishes "no events" from "metric not exposed".
+    try:
+        from hokora.security.lxmf_inbound import (
+            get_lxmf_inbound_action_counts,
+            get_lxmf_inbound_counts,
+        )
+
+        action_counts = get_lxmf_inbound_action_counts()
+        for label in (
+            "rejected",
+            "recovered",
+            "signature_failed",
+            "opt_out_passthrough",
+        ):
+            n = int(action_counts.get(label, 0))
+            safe_label = _sanitize_label(label)
+            lines.append(f'hokora_lxmf_inbound_actions_total{{action="{safe_label}"}} {n}')
+
+        rejection_counts = get_lxmf_inbound_counts()
+        for label in (
+            "signature_invalid",
+            "validation_status_unknown",
+            "missing_source_hash",
+            "source_unknown_after_path_request",
+            "signed_part_reconstruction_failed",
+            "missing_signature",
+            "invalid_pubkey",
+            "bad_signature",
+        ):
+            n = int(rejection_counts.get(label, 0))
+            safe_label = _sanitize_label(label)
+            lines.append(f'hokora_lxmf_inbound_rejections_total{{reason="{safe_label}"}} {n}')
+    except Exception:
+        pass
+
     # Ban-enforcement rejections. Counter family keyed on the surface
     # label. Always emitted (even at zero) for the same reason as the
     # binding-rejection family above.
