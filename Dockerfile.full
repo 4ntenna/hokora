@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
+# SPDX-License-Identifier: AGPL-3.0-only
+FROM python:3.12-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libsqlcipher-dev gcc pkg-config i2pd && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m hokora
+
+WORKDIR /app
+COPY pyproject.toml .
+COPY requirements-lock.txt .
+COPY src/ src/
+COPY alembic/ alembic/
+COPY alembic.ini .
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# Install from the lockfile: every dep is pinned to its exact version
+# with hashes verified. ``-c`` (constraints) was rejected by pip because
+# the lockfile contains ``sqlalchemy[asyncio]`` with an extras spec; ``-r``
+# (requirements) accepts that. Hokora itself installs with ``--no-deps``
+# to avoid pip re-resolving the dep tree against pyproject (which would
+# undo the lockfile pin). Net image cost: ~10 MB of dev tools (pytest,
+# ruff, alembic, httpx) bundled — acceptable trade for lockfile-strict
+# version pinning across all environments.
+RUN pip install --no-cache-dir -r requirements-lock.txt && \
+    pip install --no-cache-dir --no-deps "."
+
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+ENV PYTHONPATH=/app/src
+
+# Node data stored here. RNS config defaults to $HOKORA_DATA_DIR/rns
+# (set by docker-entrypoint.sh); override RNS_CONFIG_DIR for managed
+# config setups that bind-mount their own directory.
+ENV HOKORA_DATA_DIR=/data/hokora
+
+RUN mkdir -p /data/hokora /etc/rns && chown -R hokora:hokora /data/hokora /etc/rns
+
+USER hokora
+
+EXPOSE 4242 8421
+
+# Liveness contract: the daemon's observability listener at
+# 127.0.0.1:${HOKORA_OBSERVABILITY_PORT:-8421} is the single source of truth
+# for container health. /health/live returns 200 iff the daemon process is
+# up AND the heartbeat invariants (rns_alive + maintenance_fresh) hold.
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"HOKORA_OBSERVABILITY_PORT\", \"8421\")}/health/live')" || exit 1
+
+ENTRYPOINT ["docker-entrypoint.sh"]

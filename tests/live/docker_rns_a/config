@@ -1,0 +1,17 @@
+[reticulum]
+  # Override default "default" so the daemon does not attach to a host
+  # @rns/default if compose ever runs with network_mode: host.
+  instance_name = hokora_demo_a
+  enable_transport = Yes
+  share_instance = Yes
+
+[interfaces]
+  [[TCP Server]]
+    type = TCPServerInterface
+    enabled = yes
+    # 0.0.0.0 is safe only because docker-compose.yml does not publish
+    # 4242 and the bridge network "hokora-net" is private to the host.
+    # Do not enable host networking or a ports: mapping without
+    # switching to a specific bridge IP.
+    listen_ip = 0.0.0.0
+    listen_port = 4242

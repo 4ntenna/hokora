@@ -1,0 +1,3 @@
+# SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
+# SPDX-License-Identifier: AGPL-3.0-only
+"""TUI-side security helpers (client identity + DB key)."""

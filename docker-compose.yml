@@ -1,0 +1,51 @@
+# SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
+# SPDX-License-Identifier: AGPL-3.0-only
+#
+# Single-node Hokora community daemon. This is the deployable template:
+#
+#     docker compose up -d
+#
+# On first start the entrypoint runs `hokora init`, which generates the
+# encrypted database, identity, api_key, and an RNS config (with
+# commented examples for TCP/I2P/Tor/RNode). Everything lives inside
+# the hokora-data volume; edit <volume>/rns/config to add seeds or
+# transports, then `docker compose restart hokorad`.
+#
+# The observability listener binds 127.0.0.1 inside the container; the
+# host port mapping below keeps it loopback on the host as well. Front
+# with an authenticated reverse proxy if you need remote scrape (see
+# docs/runbooks/09-monitoring-observability.md).
+#
+# For the two-node federation lab, use:
+#     docker compose -f examples/two-node-federation/docker-compose.yml up -d
+services:
+  hokorad:
+    build:
+      context: .
+      dockerfile: Dockerfile.full
+    image: hokora:latest
+    container_name: hokorad
+    restart: unless-stopped
+    environment:
+      HOKORA_NODE_NAME: "Hokora Node"
+      HOKORA_NODE_TYPE: "community"
+      HOKORA_DB_ENCRYPT: "${HOKORA_DB_ENCRYPT:-true}"
+      HOKORA_LOG_LEVEL: "${HOKORA_LOG_LEVEL:-INFO}"
+      HOKORA_LOG_JSON: "${HOKORA_LOG_JSON:-true}"
+      HOKORA_LOG_TO_STDOUT: "${HOKORA_LOG_TO_STDOUT:-true}"
+      HOKORA_ANNOUNCE_INTERVAL: "${HOKORA_ANNOUNCE_INTERVAL:-600}"
+    volumes:
+      - hokora-data:/data/hokora
+    ports:
+      - "127.0.0.1:8421:8421"
+    mem_limit: 1g
+    cpus: "2.0"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8421/health/live')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  hokora-data:

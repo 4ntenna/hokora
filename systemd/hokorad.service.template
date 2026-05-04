@@ -1,0 +1,21 @@
+[Unit]
+Description=Hokora Daemon
+After=network.target
+
+[Service]
+Type=simple
+User=%USER%
+ExecStart=%PYTHON% -m hokora
+Environment=HOKORA_CONFIG=%DATA_DIR%/hokora.toml
+WorkingDirectory=%DATA_DIR%
+Restart=on-failure
+RestartSec=5
+PrivateTmp=yes
+ProtectSystem=strict
+NoNewPrivileges=yes
+ReadWritePaths=%DATA_DIR%
+StandardOutput=append:%DATA_DIR%/hokorad.log
+StandardError=append:%DATA_DIR%/hokorad.log
+
+[Install]
+WantedBy=multi-user.target
