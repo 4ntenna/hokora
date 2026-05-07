@@ -8,6 +8,7 @@ from typing import Optional, Callable
 import RNS
 
 from hokora.media.storage import MediaStorage
+from hokora.protocol.rns_bridge import make_resource_filter
 
 logger = logging.getLogger(__name__)
 
@@ -68,20 +69,14 @@ class MediaTransfer:
             def _resource_started(resource):
                 resource.callback = lambda r: callback(r.data.read())
 
-            # ACCEPT_APP + size filter (not ACCEPT_ALL) caps untrusted resource size.
-            max_size = self.storage.max_upload_bytes
-
-            def _resource_filter(resource):
-                if resource.data_size is not None and resource.data_size > max_size:
-                    logger.warning(
-                        f"Rejecting media resource: size {resource.data_size} > {max_size}"
-                    )
-                    return False
-                return True
-
             # Two-call pattern — current RNS dropped strategy(callback=).
             link.set_resource_strategy(RNS.Link.ACCEPT_APP)
-            link.set_resource_callback(_resource_filter)
+            link.set_resource_callback(
+                make_resource_filter(
+                    self.storage.max_upload_bytes,
+                    label=f"media-fetch/{relative_path}",
+                )
+            )
             link.set_resource_started_callback(_resource_started)
 
         RNS.Packet(link, request).send()

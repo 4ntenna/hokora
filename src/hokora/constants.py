@@ -157,6 +157,14 @@ MAX_GLOBAL_STORAGE_BYTES = 10 * 1024 * 1024 * 1024  # 10GB default
 MAX_THUMBNAIL_BYTES = 32 * 1024  # 32KB
 MAX_AVATAR_BYTES = 32 * 1024
 
+# Inbound RNS.Resource size cap (applies on both daemon and TUI receive sides).
+# Below MIN: too small for Resource semantics; above HARD_LIMIT: invites OOM /
+# bandwidth exhaustion. Default matches MAX_UPLOAD_BYTES so legitimate media
+# fetches pass under the same ceiling.
+DEFAULT_MAX_RESOURCE_SIZE = 5 * 1024 * 1024
+MIN_RESOURCE_SIZE = 64 * 1024
+MAX_RESOURCE_SIZE_HARD_LIMIT = 50 * 1024 * 1024
+
 # Sealed channels
 SEALED_CHANNEL_MAX_MEMBERS = 50
 SEALED_KEY_ROTATION_DAYS = 30

@@ -450,6 +450,19 @@ async def render_metrics(
     except Exception:
         pass
 
+    # Inbound RNS.Resource rejections. Always emitted at zero so a fresh
+    # scrape distinguishes "no events" from "metric not exposed".
+    try:
+        from hokora.protocol.rns_bridge import get_resource_rejection_counts
+
+        resource_counts = get_resource_rejection_counts()
+        for label in ("oversize", "malformed"):
+            n = int(resource_counts.get(label, 0))
+            safe_label = _sanitize_label(label)
+            lines.append(f'hokora_resource_rejections_total{{reason="{safe_label}"}} {n}')
+    except Exception:
+        pass
+
     # Daemon uptime. Prefer the daemon's real start time; fall back to the
     # module-import time only when no caller has wired it through.
     _ref = daemon_start_time if daemon_start_time is not None else _MODULE_IMPORT_TIME

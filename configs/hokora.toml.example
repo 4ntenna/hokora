@@ -35,6 +35,7 @@ db_key     = "CHANGE-ME-generate-with-openssl-rand-hex-32"
 # max_upload_bytes          = 5242880                # 5 MB per file
 # max_storage_bytes         = 1073741824             # 1 GB per channel
 # max_global_storage_bytes  = 10737418240            # 10 GB total
+# max_resource_size         = 5242880                # inbound RNS.Resource cap
 
 
 # -----------------------------------------------------------------------------
