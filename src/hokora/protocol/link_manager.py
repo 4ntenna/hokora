@@ -10,6 +10,8 @@ from typing import Optional, Callable
 
 import RNS
 
+from hokora.constants import DEFAULT_MAX_RESOURCE_SIZE
+from hokora.protocol.rns_bridge import make_resource_filter
 from hokora.protocol.wire import (
     decode_sync_request,
     encode_sync_response,
@@ -36,7 +38,12 @@ class LinkContext:
 class LinkManager:
     """Manages RNS Link lifecycle and request handler registration."""
 
-    def __init__(self, async_loop: asyncio.AbstractEventLoop):
+    def __init__(
+        self,
+        async_loop: asyncio.AbstractEventLoop,
+        max_resource_size: int = DEFAULT_MAX_RESOURCE_SIZE,
+        on_resource_reject: Optional[Callable[[str], None]] = None,
+    ):
         self.loop = async_loop
         self._links: dict[bytes, LinkContext] = {}
         # threading.Lock — RNS callbacks fire from non-loop threads.
@@ -46,6 +53,8 @@ class LinkManager:
         self._closed_hook: Optional[Callable[[RNS.Link], None]] = None
         # Keyed "{identity_hash}:{channel_id}"; populated by EpochOrchestrator.
         self._epoch_managers: dict = {}
+        self._max_resource_size = max_resource_size
+        self._on_resource_reject = on_resource_reject
 
     def set_sync_handler(self, handler: Callable):
         """Set the async coroutine that handles sync requests."""
@@ -64,9 +73,15 @@ class LinkManager:
 
             link.set_link_closed_callback(self._on_link_closed)
 
-            # Register sync request handler with size validation
+            # Two-call pattern — current RNS dropped strategy(callback=).
             link.set_resource_strategy(RNS.Link.ACCEPT_APP)
-            link.set_resource_callback(self._resource_filter)
+            link.set_resource_callback(
+                make_resource_filter(
+                    self._max_resource_size,
+                    label=f"daemon-link/{channel_id}",
+                    on_reject=self._on_resource_reject,
+                )
+            )
 
             link.set_packet_callback(self._on_packet)
 
@@ -86,19 +101,6 @@ class LinkManager:
             )
         except Exception:
             logger.exception(f"Error in on_link_established for {channel_id}")
-
-    # Maximum inbound resource size (5 MB)
-    MAX_RESOURCE_SIZE = 5 * 1024 * 1024
-
-    def _resource_filter(self, resource: RNS.Resource) -> bool:
-        """Accept or reject inbound resource transfers based on size."""
-        if resource.data_size is not None and resource.data_size > self.MAX_RESOURCE_SIZE:
-            logger.warning(
-                f"Rejecting resource: size {resource.data_size} exceeds "
-                f"limit {self.MAX_RESOURCE_SIZE}"
-            )
-            return False
-        return True
 
     def _on_link_closed(self, link: RNS.Link):
         with self._links_lock:

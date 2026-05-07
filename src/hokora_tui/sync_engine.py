@@ -68,13 +68,21 @@ class SyncEngine:
         reticulum: RNS.Reticulum,
         identity: Optional[RNS.Identity] = None,
         data_dir: Optional[Path] = None,
+        max_resource_size: Optional[int] = None,
     ):
         self.reticulum = reticulum
         self.identity = identity
         # Cross-cutting mutable state shared across subsystems.
         self._state = SyncState()
         # Link lifecycle + reconnect.
-        self._link_manager = ChannelLinkManager(reticulum, identity, self._state)
+        from hokora.constants import DEFAULT_MAX_RESOURCE_SIZE
+
+        self._link_manager = ChannelLinkManager(
+            reticulum,
+            identity,
+            self._state,
+            max_resource_size=max_resource_size or DEFAULT_MAX_RESOURCE_SIZE,
+        )
         self._reconnect = ReconnectScheduler(self._link_manager)
         # Message / event callbacks.
         self._message_callback: Optional[Callable] = None

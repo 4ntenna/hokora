@@ -157,7 +157,7 @@ class FederationHandshakeOrchestrator:
             # so the failure mode is visible as a protocol-violation log
             # rather than a generic verification failure.
             if (
-                not isinstance(peer_public_key, (bytes, bytearray))
+                not isinstance(peer_public_key, bytes)
                 or len(peer_public_key) != ED25519_PUBLIC_KEY_SIZE
             ):
                 logger.warning(

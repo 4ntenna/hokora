@@ -1,6 +1,15 @@
 # SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Shared test fixtures: temp data dir, NodeConfig, async DB engine + session, FTS manager."""
+"""Shared test fixtures: temp data dir, NodeConfig, async DB engine + session, FTS manager.
+
+Convention: callbacks dispatched by RNS (set_resource_callback,
+set_link_established_callback, set_packet_callback) must be tested with
+real RNS objects, not ``MagicMock``. A MagicMock auto-creates any
+attribute access, so a bug like ``resource.data_size`` (which does not
+exist on ``ResourceAdvertisement``) passes the test and silently
+AttributeErrors in production. See ``tests/unit/test_resource_filter.py``
+for the real-RA pattern.
+"""
 
 import asyncio
 import tempfile

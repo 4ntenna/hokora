@@ -284,7 +284,13 @@ class HokoraDaemon:
         self.identity_manager.get_or_create_node_identity()
 
         self.sequencer = SequenceManager()
-        self.link_manager = LinkManager(self.loop)
+        from hokora.protocol.rns_bridge import increment_resource_rejection
+
+        self.link_manager = LinkManager(
+            self.loop,
+            max_resource_size=self.config.max_resource_size,
+            on_resource_reject=increment_resource_rejection,
+        )
         # Sealed-channel manager is constructed here (before LiveSubscriptionManager)
         # so the live layer can reference it for server-side decrypt of sealed rows
         # before pushing to Link subscribers. Without this, sealed messages pushed

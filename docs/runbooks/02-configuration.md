@@ -109,6 +109,7 @@ All fields applicable to community and relay nodes unless noted.
 | `max_upload_bytes` | int | `5242880` (5 MB) | `HOKORA_MAX_UPLOAD_BYTES` | Per-file upload limit |
 | `max_storage_bytes` | int | `1073741824` (1 GB) | `HOKORA_MAX_STORAGE_BYTES` | Per-channel storage quota |
 | `max_global_storage_bytes` | int | `10737418240` (10 GB) | `HOKORA_MAX_GLOBAL_STORAGE_BYTES` | Total node storage quota |
+| `max_resource_size` | int | `5242880` (5 MB) | `HOKORA_MAX_RESOURCE_SIZE` | Inbound `RNS.Resource` cap. Range 64 KB – 50 MB. Rejections increment `hokora_resource_rejections_total{reason="oversize"\|"malformed"}` |
 
 ### Logging
 

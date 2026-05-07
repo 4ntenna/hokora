@@ -20,6 +20,8 @@ from typing import Callable, Optional
 
 import RNS
 
+from hokora.constants import DEFAULT_MAX_RESOURCE_SIZE
+from hokora.protocol.rns_bridge import make_resource_filter
 from hokora_tui.sync.state import SyncState
 
 logger = logging.getLogger(__name__)
@@ -40,6 +42,8 @@ class ChannelLinkManager:
         reticulum: RNS.Reticulum,
         identity: Optional[RNS.Identity],
         state: SyncState,
+        max_resource_size: int = DEFAULT_MAX_RESOURCE_SIZE,
+        on_resource_reject: Optional[Callable[[str], None]] = None,
     ) -> None:
         self.reticulum = reticulum
         self.identity = identity
@@ -51,6 +55,8 @@ class ChannelLinkManager:
         self._on_closed: Optional[Callable[[str, RNS.Link], None]] = None
         self._on_packet: Optional[Callable[[bytes, Optional[RNS.Packet]], None]] = None
         self._on_resource_concluded: Optional[Callable[[RNS.Resource], None]] = None
+        self._max_resource_size = max_resource_size
+        self._on_resource_reject = on_resource_reject
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -123,8 +129,17 @@ class ChannelLinkManager:
         if self._on_packet is not None:
             link.set_packet_callback(self._on_packet)
 
-        # Accept resource transfers for large responses (> MDU)
-        link.set_resource_strategy(RNS.Link.ACCEPT_ALL)
+        # Two-call pattern — current RNS dropped strategy(callback=).
+        # ACCEPT_APP + size filter caps resources from a buggy/hostile daemon;
+        # plain ACCEPT_ALL would let one oversize advertisement OOM the client.
+        link.set_resource_strategy(RNS.Link.ACCEPT_APP)
+        link.set_resource_callback(
+            make_resource_filter(
+                self._max_resource_size,
+                label=f"tui-link/{channel_id}",
+                on_reject=self._on_resource_reject,
+            )
+        )
         if self._on_resource_concluded is not None:
             link.set_resource_concluded_callback(self._on_resource_concluded)
 

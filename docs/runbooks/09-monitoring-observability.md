@@ -103,6 +103,12 @@ Sixteen metric families in total. Emitted by `src/hokora/core/prometheus_exporte
 | `hokora_sealed_channels_total` | — | Count of sealed channels |
 | `hokora_sealed_key_age_seconds` | `channel` | Age of the newest epoch key |
 
+### Transport hardening
+
+| Metric | Labels | Purpose |
+|---|---|---|
+| `hokora_resource_rejections_total` | `reason` (`oversize`, `malformed`) | Inbound `RNS.Resource` rejections from the size chokepoint. Sustained non-zero values indicate either a misconfigured `max_resource_size` or a hostile/buggy peer. |
+
 All label values are sanitised against `"`, `\`, and newline characters before emission.
 
 ## Scraping

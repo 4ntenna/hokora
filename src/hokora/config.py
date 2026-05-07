@@ -15,6 +15,11 @@ except ImportError:
 
 from pydantic import BaseModel
 
+from hokora.constants import (
+    DEFAULT_MAX_RESOURCE_SIZE,
+    MAX_RESOURCE_SIZE_HARD_LIMIT,
+    MIN_RESOURCE_SIZE,
+)
 from hokora.security.db_key import (
     resolve_db_key_from_path,
     validate_db_key_hex,
@@ -79,6 +84,9 @@ class NodeConfig(BaseModel):
     max_upload_bytes: int = 5 * 1024 * 1024
     max_storage_bytes: int = 1024 * 1024 * 1024
     max_global_storage_bytes: int = 10 * 1024 * 1024 * 1024  # 10GB
+
+    # Inbound RNS.Resource size cap — applies to LinkManager + media transfer.
+    max_resource_size: int = DEFAULT_MAX_RESOURCE_SIZE
 
     # Federation
     federation_auto_trust: bool = False
@@ -173,6 +181,14 @@ class NodeConfig(BaseModel):
                 f"mirror_retry_interval ({self.mirror_retry_interval}) must be "
                 "between 10 and 600 seconds. Lower values produce noisy retry "
                 "loops; higher values delay recovery from missed announces."
+            )
+        if not (MIN_RESOURCE_SIZE <= self.max_resource_size <= MAX_RESOURCE_SIZE_HARD_LIMIT):
+            raise ValueError(
+                f"max_resource_size ({self.max_resource_size}) must be in "
+                f"[{MIN_RESOURCE_SIZE}, {MAX_RESOURCE_SIZE_HARD_LIMIT}]. "
+                "Below the floor is too small for Resource semantics; above "
+                "the ceiling invites OOM / bandwidth exhaustion from a hostile "
+                "or buggy peer."
             )
         if self.fs_min_epoch_duration >= self.fs_max_epoch_duration:
             raise ValueError("fs_min_epoch_duration must be less than fs_max_epoch_duration")

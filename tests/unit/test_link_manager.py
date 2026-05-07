@@ -57,17 +57,22 @@ class TestLinkEstablished:
 
 
 class TestResourceFilter:
-    def test_resource_filter_accepts_under_5mb(self):
-        lm, mod = _make_link_manager()
-        resource = MagicMock()
-        resource.data_size = 1024 * 1024  # 1 MB
-        assert lm._resource_filter(resource) is True
+    """Filter logic itself lives in tests/unit/test_resource_filter.py against
+    a real ResourceAdvertisement; here we only assert wire-up to the link.
+    """
 
-    def test_resource_filter_rejects_over_5mb(self):
+    def test_on_link_established_registers_resource_callback(self):
         lm, mod = _make_link_manager()
-        resource = MagicMock()
-        resource.data_size = 10 * 1024 * 1024  # 10 MB
-        assert lm._resource_filter(resource) is False
+        link = MagicMock()
+        link.link_id = b"\x04" * 16
+        link.get_remote_identity.return_value = None
+
+        lm.on_link_established(link, "ch01")
+
+        assert link.set_resource_strategy.called
+        assert link.set_resource_callback.called
+        cb = link.set_resource_callback.call_args[0][0]
+        assert callable(cb)
 
 
 class TestOnPacket:

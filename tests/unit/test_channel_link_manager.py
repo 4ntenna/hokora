@@ -355,3 +355,29 @@ class TestCallbacks:
         link = MagicMock(keepalive=200)
         mgr._handle_established(link, "ch1")
         mgr._handle_closed(link, "ch1")
+
+
+class TestResourceFilterWiring:
+    """ACCEPT_ALL would let one oversize advertisement OOM the client; a
+    regression here is silent until production. Assert the link receives
+    ACCEPT_APP plus a callable filter on every connect.
+    """
+
+    def test_connect_channel_registers_resource_filter(self, reticulum, state):
+        cached = MagicMock()
+        state.channel_identities["ch1"] = cached
+        with patch("hokora_tui.sync.link_manager.RNS") as rns:
+            rns.Destination.OUT = 1
+            rns.Destination.SINGLE = 2
+            rns.Link.ACCEPT_APP = 77
+            rns.Transport.has_path.return_value = True
+            link_mock = MagicMock(establishment_timeout=6)
+            rns.Link.return_value = link_mock
+
+            mgr = ChannelLinkManager(reticulum, None, state)
+            mgr.connect_channel(b"\x10" * 16, "ch1")
+
+            link_mock.set_resource_strategy.assert_called_once_with(77)
+            link_mock.set_resource_callback.assert_called_once()
+            cb = link_mock.set_resource_callback.call_args[0][0]
+            assert callable(cb)
