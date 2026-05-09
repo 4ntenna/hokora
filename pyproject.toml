@@ -17,8 +17,8 @@ classifiers = [
     "License :: OSI Approved :: GNU Affero General Public License v3",
 ]
 dependencies = [
-    "rns>=1.1.9,<2.0",
-    "lxmf>=0.9.6,<1.0",
+    "rns>=1.2.4,<2.0",
+    "lxmf>=0.9.7,<1.0",
     "msgpack>=1.0,<2.0",
     "sqlalchemy[asyncio]>=2.0,<3.0",
     "aiosqlite>=0.19,<1.0",
