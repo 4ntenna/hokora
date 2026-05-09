@@ -366,8 +366,8 @@ iniconfig==2.3.0 \
     --hash=sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730 \
     --hash=sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12
     # via pytest
-lxmf==0.9.6 \
-    --hash=sha256:67e8e8b34d1756ea229c59bee08b382e57df95a047b55321ba5ab180d2eafe6e
+lxmf==0.9.7 \
+    --hash=sha256:93ee45ca7ae82b5ed065069e30b9f8915a6e32a525b1e9235b7c871a18210d2c
     # via hokora (pyproject.toml)
 mako==1.3.11 \
     --hash=sha256:071eb4ab4c5010443152255d77db7faa6ce5916f35226eb02dc34479b6858069 \
@@ -723,9 +723,10 @@ pytest-timeout==2.4.0 \
     --hash=sha256:7e68e90b01f9eff71332b25001f85c75495fc4e3a836701876183c4bcfd0540a \
     --hash=sha256:c42667e5cdadb151aeb5b26d114aff6bdf5a907f176a007a30b940d3d865b5c2
     # via hokora (pyproject.toml)
-rns==1.1.9 \
-    --hash=sha256:39a131aeb5d76fd73bfc67f68135f49ab0cf8628af154e04096a05c208ce77b6 \
-    --hash=sha256:f15ab1336e6cf494666f836dfdc42d1ea5c41b917341626e5e6c9ecec9ce32f7
+rns==1.2.4 \
+    --hash=sha256:49798a8cc23632ec0e4d4cd88c1408ef02bee613995a6c57d52a37fb79c329ca \
+    --hash=sha256:cbf1d2ff517c91288b2b924e62e3e5b3f2732d35331c4bbd07329bf21a7c14bf \
+    --hash=sha256:e821a0b6a18d6b3263bbcdde880d0388fb4dd0c07c7eb2f83cb0dbc30eda5965
     # via
     #   hokora (pyproject.toml)
     #   lxmf
