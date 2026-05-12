@@ -27,26 +27,27 @@ from hokora_tui.widgets.info_panel import (
 
 
 def _walk_text(widget) -> list[str]:
-    """Collect every Text segment string in a widget tree, depth-first.
-
-    Used by tests to assert that a label/value appears somewhere in the
-    rendered Pile/Columns hierarchy without depending on the exact
-    layout shape.
-    """
+    """Collect every Text segment string in a widget tree, depth-first."""
     out: list[str] = []
     if isinstance(widget, urwid.Text):
         out.append(widget.text)
         return out
-    # Containers expose ``contents`` (Pile/Columns: list of (widget, options))
-    # or wrap a single child via ``original_widget`` (WidgetPlaceholder /
-    # AttrMap / LineBox / Filler).
+    if isinstance(widget, urwid.Frame):
+        for slot in (widget.header, widget.body, widget.footer):
+            if isinstance(slot, urwid.Widget):
+                out.extend(_walk_text(slot))
+        return out
+    if isinstance(widget, urwid.ListBox):
+        for child in widget.body:
+            out.extend(_walk_text(child))
+        return out
     contents = getattr(widget, "contents", None)
     if contents is not None:
         for item in contents:
             child = item[0] if isinstance(item, tuple) else item
             out.extend(_walk_text(child))
         return out
-    inner = getattr(widget, "original_widget", None)
+    inner = getattr(widget, "original_widget", None) or getattr(widget, "_w", None)
     if isinstance(inner, urwid.Widget):
         out.extend(_walk_text(inner))
     return out

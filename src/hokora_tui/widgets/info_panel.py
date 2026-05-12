@@ -22,65 +22,54 @@ def build_node_info_panel(node_dict: dict, sync_engine: Optional[Any] = None) ->
     ``node_dict`` follows the ``app.state.discovered_nodes`` shape
     (see ``Announcer._on_announce`` channel-announce branch).
     """
-    rows: list[urwid.Widget] = []
+    body_rows: list[urwid.Widget] = []
 
-    rows.append(_top_bar("Node Info"))
-    rows.append(urwid.Divider())
+    body_rows.append(urwid.Divider())
+    body_rows.append(_kv_row("Type", _format_node_type(node_dict)))
+    body_rows.append(_kv_row("Name", node_dict.get("node_name") or "(unknown)"))
 
-    rows.append(_kv_row("Type", _format_node_type(node_dict)))
-    rows.append(_kv_row("Name", node_dict.get("node_name") or "(unknown)"))
-
-    rows.append(urwid.Divider())
+    body_rows.append(urwid.Divider())
 
     identity_hash = node_dict.get("node_identity_hash")
     if identity_hash:
-        rows.append(_kv_row("Identity hash", identity_hash, value_attr="info_hash"))
+        body_rows.append(_kv_row("Identity hash", identity_hash, value_attr="info_hash"))
     else:
-        rows.append(_kv_row("Identity hash", "(not announced)", value_attr="info_dim"))
+        body_rows.append(_kv_row("Identity hash", "(not announced)", value_attr="info_dim"))
 
     primary_dest = node_dict.get("primary_dest") or node_dict.get("hash")
     if primary_dest:
-        rows.append(_kv_row("Destination", primary_dest, value_attr="info_hash"))
+        body_rows.append(_kv_row("Destination", primary_dest, value_attr="info_hash"))
 
-    rows.append(urwid.Divider())
+    body_rows.append(urwid.Divider())
 
-    rows.append(_kv_row("Distance", _format_hops(node_dict.get("hops"))))
-    rows.append(_kv_row("Interface", _resolve_interface(primary_dest)))
-    rows.append(_kv_row("Last seen", _format_last_seen(node_dict.get("last_seen"))))
+    body_rows.append(_kv_row("Distance", _format_hops(node_dict.get("hops"))))
+    body_rows.append(_kv_row("Interface", _resolve_interface(primary_dest)))
+    body_rows.append(_kv_row("Last seen", _format_last_seen(node_dict.get("last_seen"))))
 
-    rows.append(urwid.Divider())
+    body_rows.append(urwid.Divider())
 
     channels = node_dict.get("channels") or []
     channel_dests = node_dict.get("channel_dests") or {}
-    rows.append(_kv_row("Channels", f"{len(channels)} announced"))
+    body_rows.append(_kv_row("Channels", f"{len(channels)} announced"))
     if channels:
-        # Render channel id alongside each name where we have it. The
-        # `channel_dests` dict is keyed by channel_id, so reverse-look-up
-        # is best-effort: if a name appears with no id we skip the id col.
-        # We don't have direct name→id mapping; the announcer keeps
-        # parallel dicts. Render id when there's a 1:1 mapping by index.
         for ch_name in channels:
-            # Find the matching channel_id by name (best-effort — the
-            # announcer keys by channel_id, not name; for now show the
-            # name only and the count tells the user how many exist).
-            rows.append(_indent_row(f"# {ch_name}"))
-        # Show channel_ids separately if any are present.
+            body_rows.append(_indent_row(f"# {ch_name}"))
         if channel_dests:
-            rows.append(urwid.Divider())
-            rows.append(_kv_row("Channel IDs", f"{len(channel_dests)} known"))
+            body_rows.append(urwid.Divider())
+            body_rows.append(_kv_row("Channel IDs", f"{len(channel_dests)} known"))
             for ch_id, dest in list(channel_dests.items())[:10]:
-                rows.append(_indent_row(ch_id, value=dest, value_attr="info_hash"))
+                body_rows.append(_indent_row(ch_id, value=dest, value_attr="info_hash"))
             if len(channel_dests) > 10:
-                rows.append(
+                body_rows.append(
                     _indent_row(f"... +{len(channel_dests) - 10} more", value_attr="info_dim")
                 )
 
-    rows.append(urwid.Divider())
+    body_rows.append(urwid.Divider())
+    body_rows.append(
+        _kv_row("Bookmark", "★ saved" if node_dict.get("bookmarked") else "not bookmarked")
+    )
 
-    rows.append(_kv_row("Bookmark", "★ saved" if node_dict.get("bookmarked") else "not bookmarked"))
-
-    pile = urwid.Pile(rows)
-    return urwid.Filler(pile, valign="top")
+    return _build_scrollable_panel(_top_bar("Node Info"), body_rows)
 
 
 def build_peer_info_panel(peer_dict: dict, sync_engine: Optional[Any] = None) -> urwid.Widget:
@@ -89,37 +78,36 @@ def build_peer_info_panel(peer_dict: dict, sync_engine: Optional[Any] = None) ->
     ``peer_dict`` follows the ``app.state.discovered_peers`` shape
     (see ``Announcer._on_announce`` profile-announce branch).
     """
-    rows: list[urwid.Widget] = []
+    body_rows: list[urwid.Widget] = []
 
-    rows.append(_top_bar("Peer Info"))
-    rows.append(urwid.Divider())
-
-    rows.append(_kv_row("Type", "Hokora User"))
-    rows.append(_kv_row("Display name", peer_dict.get("display_name") or "(unknown)"))
+    body_rows.append(urwid.Divider())
+    body_rows.append(_kv_row("Type", "Hokora User"))
+    body_rows.append(_kv_row("Display name", peer_dict.get("display_name") or "(unknown)"))
 
     status_text = peer_dict.get("status_text") or ""
     if status_text:
-        rows.append(_kv_row("Status", status_text))
+        body_rows.append(_kv_row("Status", status_text))
 
-    rows.append(urwid.Divider())
+    body_rows.append(urwid.Divider())
 
     peer_hash = peer_dict.get("hash")
     if peer_hash:
-        rows.append(_kv_row("Identity hash", peer_hash, value_attr="info_hash"))
+        body_rows.append(_kv_row("Identity hash", peer_hash, value_attr="info_hash"))
 
-    rows.append(urwid.Divider())
+    body_rows.append(urwid.Divider())
 
-    rows.append(_kv_row("Distance", _format_hops(peer_dict.get("hops"))))
-    rows.append(_kv_row("Interface", _resolve_interface(peer_hash)))
-    rows.append(_kv_row("Last seen", _format_last_seen(peer_dict.get("last_seen"))))
+    body_rows.append(_kv_row("Distance", _format_hops(peer_dict.get("hops"))))
+    body_rows.append(_kv_row("Interface", _resolve_interface(peer_hash)))
+    body_rows.append(_kv_row("Last seen", _format_last_seen(peer_dict.get("last_seen"))))
 
-    rows.append(urwid.Divider())
+    body_rows.append(urwid.Divider())
 
-    rows.append(_kv_row("Verify state", _format_verify_state(peer_hash, sync_engine)))
-    rows.append(_kv_row("Bookmark", "★ saved" if peer_dict.get("bookmarked") else "not bookmarked"))
+    body_rows.append(_kv_row("Verify state", _format_verify_state(peer_hash, sync_engine)))
+    body_rows.append(
+        _kv_row("Bookmark", "★ saved" if peer_dict.get("bookmarked") else "not bookmarked")
+    )
 
-    pile = urwid.Pile(rows)
-    return urwid.Filler(pile, valign="top")
+    return _build_scrollable_panel(_top_bar("Peer Info"), body_rows)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -128,6 +116,25 @@ def build_peer_info_panel(peer_dict: dict, sync_engine: Optional[Any] = None) ->
 
 
 _LABEL_WIDTH = 16
+
+
+class _SelectableRow(urwid.WidgetWrap):
+    """Selectable wrapper — urwid.ListBox scrolls by moving focus between selectable rows."""
+
+    def selectable(self) -> bool:
+        return True
+
+    def keypress(self, size, key):  # type: ignore[override]
+        return key
+
+
+def _build_scrollable_panel(
+    header_widget: urwid.Widget, body_rows: list[urwid.Widget]
+) -> urwid.Widget:
+    """Frame with a fixed header over a scrollable ListBox body."""
+    walker = urwid.SimpleFocusListWalker([_SelectableRow(row) for row in body_rows])
+    listbox = urwid.ListBox(walker)
+    return urwid.Frame(listbox, header=header_widget)
 
 
 def _top_bar(section_text: str) -> urwid.Widget:
