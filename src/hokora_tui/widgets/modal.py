@@ -23,14 +23,18 @@ class Modal:
         app: HokoraTUI,
         title: str,
         body_widget: urwid.Widget,
-        width: int = 60,
-        height: int = 20,
+        width: int = 70,
+        height: int = 60,
+        min_width: int = 40,
+        min_height: int = 10,
     ) -> None:
         """Show a centered urwid Overlay modal.
 
-        ``width`` / ``height`` are urwid relative dimensions (0–100%).
-        The current frame body is saved on a class attr for ``close()``
-        to restore — only one modal can be open at a time.
+        ``width`` / ``height`` are urwid relative dimensions (0–100%);
+        ``min_width`` / ``min_height`` are absolute floors so dialogs
+        stay readable on small terminals. The body widget must itself
+        be scrollable when content can overflow the overlay. Only one
+        modal can be open at a time.
         """
         Modal._saved_body = app.frame.body
 
@@ -44,6 +48,8 @@ class Modal:
             width=("relative", width),
             valign="middle",
             height=("relative", height),
+            min_width=min_width,
+            min_height=min_height,
         )
 
         app.frame.body = overlay
