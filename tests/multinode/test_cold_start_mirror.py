@@ -11,11 +11,17 @@ parks in ``WAITING_FOR_PATH`` and is woken either by an inbound announce
 (``PeerDiscovery.handle_announce`` → ``mirror_manager.wake_for_hash``)
 or by the bounded ``periodic_mirror_health`` task.
 
+Each daemon owns its RNS instance directly (the deployment topology),
+rather than attaching to a separately-launched ``rnsd`` as a shared-
+instance client. The owner path is what production daemons take, so the
+announce-driven mirror wake-up is exercised exactly as it runs in the
+field.
+
 The test forces the cold-start race by:
 
-1. Initializing both nodes and starting only NodeA's rnsd + daemon,
-   plus NodeB's rnsd. NodeB's daemon stays down so no announces ever
-   leave NodeB. NodeA's path table is therefore empty for NodeB.
+1. Initializing both nodes and starting only NodeA's daemon. NodeB's
+   daemon stays down so its RNS instance never comes up and no announces
+   ever leave NodeB. NodeA's path table is therefore empty for NodeB.
 2. Computing NodeB's #general destination hash from NodeB's on-disk
    channel identity (no daemon needed — pure cryptographic derivation).
 3. Pre-seeding NodeA's Peer table with that destination hash.
@@ -24,7 +30,8 @@ The test forces the cold-start race by:
 5. Asserting via NodeA's loopback observability ``/api/metrics`` that
    ``hokora_mirror_link_state{state="waiting_for_path"} 1`` and
    ``hokora_mirror_connect_attempts_total{result="recall_none"} >= 1``.
-6. Starting NodeB's daemon. NodeB announces over the shared TCP fabric.
+6. Starting NodeB's daemon. NodeB's RNS instance comes up and announces
+   over the TCP link to NodeA.
 7. NodeA's announce listener calls ``wake_for_hash``; mirror reaches
    LINKED. Asserting ``state="linked"`` and
    ``connect_attempts{result="success"} >= 1``.
@@ -339,14 +346,6 @@ def _seed_peer_row(node_dir: Path, dest_hash_hex: str, channel_id: str):
         conn.close()
 
 
-def _start_rnsd(rns_dir: Path) -> subprocess.Popen:
-    return subprocess.Popen(
-        ["rnsd", "--config", str(rns_dir)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-
-
 def _start_daemon(node_dir: Path, log_path: Path) -> subprocess.Popen:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(REPO_DIR / "src")
@@ -372,7 +371,7 @@ def _prepare_rns_dir(template: Path, dest: Path, instance_name: str, listen_port
     RNS dir a distinct AF_UNIX abstract socket. Without this, when a
     parent Python process has already initialised
     ``RNS.Reticulum()`` against ``~/.reticulum`` (default
-    ``instance_name = "default"``), child rnsd attaches as a CLIENT
+    ``instance_name = "default"``), the daemon attaches as a CLIENT
     to that shared instance and never binds its TCPServerInterface.
     """
     if dest.exists():
@@ -404,8 +403,9 @@ def _prepare_rns_dir(template: Path, dest: Path, instance_name: str, listen_port
 
 @pytest.fixture
 def cold_start_env():
-    """Sequenced fixture: rnsd_a + rnsd_b + NodeB-init-only, then yields
-    a controller dict the test uses to start NodeA + NodeB daemons.
+    """Sequenced fixture: init both nodes + materialize NodeB's channel
+    identity, then yield a controller dict the test uses to start the
+    NodeA + NodeB daemons (each owns its own RNS instance).
 
     Teardown kills every subprocess we launched and wipes scratch dirs.
     """
@@ -436,14 +436,13 @@ def cold_start_env():
     # 5. Pre-seed NodeA's Peer table.
     _seed_peer_row(NODE_A_DIR, dest_hash_hex, channel_id)
 
-    # 6. Start both rnsd processes. NodeB's rnsd is up so the link can
-    # later succeed; NodeA's rnsd starts with no path entry for NodeB.
-    procs.append(_start_rnsd(RNS_A_DIR))
-    procs.append(_start_rnsd(RNS_B_DIR))
-    time.sleep(2.0)
+    # 6. No separate rnsd: each daemon brings up and owns its own RNS
+    # instance when started (the deployment topology). NodeB's instance
+    # stays down until its daemon starts, so NodeA boots with no path
+    # entry for NodeB and the mirror parks as intended.
 
-    # ``hokora init`` does not create the daemon's api_key file (the web
-    # dashboard does, on first launch). The daemon's ObservabilityListener
+    # ``hokora init`` does not create the daemon's api_key file. The
+    # daemon's ObservabilityListener
     # only enables /api/metrics when api_key is non-None — so for this
     # test we pre-write a stable shared secret per node before launching.
     import secrets
@@ -540,17 +539,11 @@ def test_cold_start_mirror_parks_then_links_after_announce(cold_start_env):
         OBS_PORT_A,
         env["api_key_a"],
         "linked",
-        # Bound covers two distinct pathways:
-        #   1. Announce-driven wake-up (production, RNS-instance owner): <1s.
-        #   2. Periodic mirror-health fallback (this fixture, RNS shared-
-        #      instance client): RNS >=1.1.7 introduced PATH_REQUEST_GATE_TIMEOUT
-        #      (120s) which defers the link-management loop's path-request
-        #      retry; the link establishes on the next periodic tick after
-        #      the gate clears. Production daemons own the RNS instance and
-        #      take the direct ``Identity._used_destination_data`` branch,
-        #      never hitting the gate. Threshold is 180s to give 60s headroom
-        #      over the gate timeout.
-        timeout=180,
+        # Instance-owner daemons take the direct announce-driven wake-up
+        # (``Identity._used_destination_data`` branch), so the link forms
+        # within a second of NodeB's announce. 30s is generous headroom
+        # for subprocess + observability-scrape jitter under CI load.
+        timeout=30,
     )
     print(f"[cold-start] step 2 linked in {time.monotonic() - t1:.1f}s", flush=True)
     assert linked, (
