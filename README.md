@@ -8,9 +8,9 @@
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
-[![Reticulum](https://img.shields.io/badge/transport-Reticulum%20%E2%89%A51.2.4-orange.svg)](https://reticulum.network/)
+[![Reticulum](https://img.shields.io/badge/transport-Reticulum%20%E2%89%A51.3.5-orange.svg)](https://reticulum.network/)
 
-Hokora runs over the [Reticulum](https://reticulum.network/) network stack and the [LXMF](https://github.com/markqvist/lxmf) message layer. It delivers channels, threads, roles, reactions, media, direct messages, and end-to-end encrypted sealed channels over any transport Reticulum supports. Currently itegrated and tested transports are currently: LoRa radio, TCP and I2P, with more coming soon!
+Hokora runs over the [Reticulum](https://reticulum.network/) network stack and the [LXMF](https://github.com/markqvist/lxmf) message layer. It delivers channels, threads, roles, reactions, media, direct messages, and end-to-end encrypted sealed channels over any transport Reticulum supports. Currently integrated and tested transports are: LoRa radio, TCP and I2P, with more coming soon!
 
 ---
 
@@ -43,8 +43,8 @@ Hokora runs over the [Reticulum](https://reticulum.network/) network stack and t
 |---|---|
 | Version | 0.1.0 |
 | Python | 3.10, 3.11, 3.12, 3.13 |
-| Reticulum | ≥ 1.2.4, < 2.0 |
-| LXMF | ≥ 0.9.7, < 1.0 |
+| Reticulum | ≥ 1.3.5, < 2.0 |
+| LXMF | ≥ 1.0.1, < 2.0 |
 | Database | SQLCipher (default), or SQLite when initialised with `hokora init --no-db-encrypt` |
 | Platforms | Linux (primary), macOS (dev), Docker, systemd-managed bare-metal |
 
