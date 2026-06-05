@@ -26,7 +26,7 @@ from hokora.db.queries import (
     IdentityRepo,
     RoleRepo,
 )
-from hokora.exceptions import PermissionDenied
+from hokora.exceptions import MessageError, PermissionDenied
 from hokora.protocol.sync import SyncHandler
 from hokora.protocol.wire import generate_nonce
 from hokora.security.permissions import PermissionResolver
@@ -283,3 +283,61 @@ class TestThreadNoMainSeq:
         # Thread replies should be filtered from main timeline
         types = [m["type"] for m in result["messages"]]
         assert MSG_THREAD_REPLY not in types
+
+
+class TestEmojiLengthValidation:
+    async def test_reaction_rejects_oversized_emoji(self, session):
+        repo = ChannelRepo(session)
+        ch = Channel(id="ch_emoji", name="emoji_test", latest_seq=0)
+        await repo.create(ch)
+
+        sequencer = SequenceManager()
+        processor = MessageProcessor(sequencer)
+
+        # Create a target message
+        target_env = MessageEnvelope(
+            channel_id="ch_emoji",
+            sender_hash="sender1",
+            timestamp=1700000000.0,
+            body="target",
+        )
+        target = await processor.ingest(session, target_env)
+
+        # Attempt reaction with oversized emoji
+        react_env = MessageEnvelope(
+            channel_id="ch_emoji",
+            sender_hash="sender1",
+            timestamp=1700000001.0,
+            type=MSG_REACTION,
+            body="x" * 33,
+            reply_to=target.msg_hash,
+        )
+        with pytest.raises(MessageError, match="emoji too long"):
+            await processor.process_reaction(session, react_env)
+
+    async def test_reaction_accepts_valid_emoji(self, session):
+        repo = ChannelRepo(session)
+        ch = Channel(id="ch_emoji2", name="emoji_test2", latest_seq=0)
+        await repo.create(ch)
+
+        sequencer = SequenceManager()
+        processor = MessageProcessor(sequencer)
+
+        target_env = MessageEnvelope(
+            channel_id="ch_emoji2",
+            sender_hash="sender1",
+            timestamp=1700000000.0,
+            body="target",
+        )
+        target = await processor.ingest(session, target_env)
+
+        react_env = MessageEnvelope(
+            channel_id="ch_emoji2",
+            sender_hash="sender1",
+            timestamp=1700000001.0,
+            type=MSG_REACTION,
+            body="👍",
+            reply_to=target.msg_hash,
+        )
+        result = await processor.process_reaction(session, react_env)
+        assert "👍" in result.reactions

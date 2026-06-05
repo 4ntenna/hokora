@@ -134,3 +134,45 @@ class TestNodeConfig:
         with caplog.at_level(logging.WARNING, logger="hokora.config"):
             load_config(config_file)
         assert not any("propagation_enabled=False" in rec.message for rec in caplog.records)
+
+
+class TestConfigEpochValidation:
+    def test_invalid_epoch_duration_too_low(self, tmp_dir):
+        with pytest.raises(ValueError, match="fs_epoch_duration"):
+            NodeConfig(
+                data_dir=tmp_dir,
+                db_encrypt=False,
+                fs_epoch_duration=100,  # below min of 300
+                fs_min_epoch_duration=300,
+                fs_max_epoch_duration=86400,
+            )
+
+    def test_invalid_epoch_duration_too_high(self, tmp_dir):
+        with pytest.raises(ValueError, match="fs_epoch_duration"):
+            NodeConfig(
+                data_dir=tmp_dir,
+                db_encrypt=False,
+                fs_epoch_duration=100000,  # above max of 86400
+                fs_min_epoch_duration=300,
+                fs_max_epoch_duration=86400,
+            )
+
+    def test_invalid_min_gte_max(self, tmp_dir):
+        with pytest.raises(ValueError, match="fs_min_epoch_duration must be less"):
+            NodeConfig(
+                data_dir=tmp_dir,
+                db_encrypt=False,
+                fs_epoch_duration=3600,
+                fs_min_epoch_duration=86400,
+                fs_max_epoch_duration=300,
+            )
+
+    def test_valid_epoch_duration_accepted(self, tmp_dir):
+        config = NodeConfig(
+            data_dir=tmp_dir,
+            db_encrypt=False,
+            fs_epoch_duration=3600,
+            fs_min_epoch_duration=300,
+            fs_max_epoch_duration=86400,
+        )
+        assert config.fs_epoch_duration == 3600

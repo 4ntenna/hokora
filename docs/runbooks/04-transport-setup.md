@@ -294,7 +294,6 @@ RNS treats each interface independently; announces reach peers on whichever inte
 
 - **Per-hop link establishment timeout: 30 seconds.** The TUI raises RNS's default to a 30 s-per-hop floor for I2P / LoRa tolerance. See `src/hokora_tui/sync/link_manager.py`.
 - **Link keepalive: 120 s floor.** Both the daemon and the TUI enforce a 120 s minimum keepalive interval to prevent premature staleness on low-RTT links.
-- **`TCPClientInterface` announce-rate attributes.** RNS 1.1.4's `TCPClientInterface` does not initialise `announce_rate_target` and siblings. Hokora monkey-patches these to `None` after `RNS.Reticulum()` init in both daemon and TUI. Remove the patch when RNS > 1.1.4 ships the fix.
 - **Resource inbound size filter.** The daemon filters inbound `RNS.Resource` to 5 MB max. Larger transfers are rejected at the RNS layer before any Hokora code sees them.
 - **Single Link per remote node.** All channels multiplex through one Link with a `channel_id` in the payload. RNS limits remote clients to one active Link per destination.
 

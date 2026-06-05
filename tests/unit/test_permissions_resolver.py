@@ -3,6 +3,7 @@
 """Permission resolver tests: channel overrides, effective permissions, ingest checks."""
 
 import time
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -279,3 +280,26 @@ class TestMentionEveryone:
         # @everyone should have been stripped
         assert "@everyone" not in msg.mentions
         assert "user1" in msg.mentions
+
+
+class TestPermissionResolverNoCaching:
+    """Ensure @everyone role is always fetched fresh."""
+
+    async def test_everyone_role_reflects_runtime_changes(self, session):
+        resolver = PermissionResolver(node_owner_hash="owner_hash")
+        role_repo = MagicMock()
+
+        # First call returns permissions=0
+        mock_role_v1 = MagicMock()
+        mock_role_v1.permissions = 0
+        mock_role_v2 = MagicMock()
+        mock_role_v2.permissions = 0xFF
+
+        role_repo.get_by_name = AsyncMock(side_effect=[mock_role_v1, mock_role_v2])
+
+        r1 = await resolver._get_everyone_role(role_repo)
+        assert r1.permissions == 0
+
+        # Second call should get updated permissions (no caching)
+        r2 = await resolver._get_everyone_role(role_repo)
+        assert r2.permissions == 0xFF

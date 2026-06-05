@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Privacy audit tests: ensure no transport/interface metadata leaks.
+"""Privacy tests: ensure no transport/interface metadata leaks.
 
 Per CDSP spec Section 4.1.3: the schema must not accumulate transport metadata.
 """
@@ -10,7 +10,7 @@ import os
 from hokora.db.models import Base, Session, DeferredSyncItem
 
 
-class TestSchemaAudit:
+class TestSchemaPrivacy:
     """Verify no column names reveal transport or interface type."""
 
     _FORBIDDEN_COLUMN_SUBSTRINGS = [
