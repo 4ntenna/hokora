@@ -294,3 +294,19 @@ class TestMessageProcessor:
         )
         thread = result.scalar_one()
         assert thread.reply_count == 2
+
+
+class TestFullSha256Hash:
+    """Verify compute_hash returns full 64-char SHA-256."""
+
+    def test_compute_hash_returns_full_sha256(self):
+        env = MessageEnvelope(
+            channel_id="ch1",
+            sender_hash="sender1",
+            timestamp=1700000000.0,
+            body="Hello",
+        )
+        h = env.compute_hash()
+        assert len(h) == 64
+        # Verify it's valid hex
+        int(h, 16)

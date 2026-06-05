@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Tests for post-audit gap implementations (items 1-6)."""
+"""Sync-protocol security: client-side verification, sealed-key distribution, metadata scrubbing, wire framing."""
 
 import struct
 import time

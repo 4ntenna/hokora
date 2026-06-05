@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Tests for audit remediation fixes (C2, C5, H3)."""
+"""Input validation and abuse-rejection tests."""
 
 import time
 

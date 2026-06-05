@@ -351,6 +351,22 @@ class MessageProcessor:
                 session.add(thread)
             await session.flush()
 
+    async def _require_target_in_channel(
+        self, session: AsyncSession, target_hash: str, channel_id: str
+    ) -> Message:
+        """Fetch a mutation target and enforce it belongs to ``channel_id``.
+
+        Single chokepoint for the target-in-channel invariant shared by
+        edit/delete/pin/reaction. Enforced here (not behind the permission
+        gate) so it holds on every entry path and with no permission_resolver.
+        """
+        original = await MessageRepo(session).get_by_hash(target_hash)
+        if not original:
+            raise MessageError(f"Target message {target_hash} not found")
+        if original.channel_id != channel_id:
+            raise MessageError("Target message does not belong to this channel")
+        return original
+
     async def process_edit(self, session: AsyncSession, envelope: MessageEnvelope) -> Message:
         """Process an edit — author-only, store new msg, update edit_chain."""
         target_hash = envelope.reply_to
@@ -358,11 +374,7 @@ class MessageProcessor:
             raise MessageError("Edit requires reply_to (target message hash)")
 
         msg_repo = MessageRepo(session)
-        original = await msg_repo.get_by_hash(target_hash)
-        if not original:
-            raise MessageError(f"Target message {target_hash} not found")
-        if original.channel_id != envelope.channel_id:
-            raise MessageError("Target message does not belong to this channel")
+        original = await self._require_target_in_channel(session, target_hash, envelope.channel_id)
 
         if original.sender_hash != envelope.sender_hash:
             raise PermissionDenied("Only the author can edit a message")
@@ -420,11 +432,7 @@ class MessageProcessor:
             raise MessageError("Delete requires reply_to (target message hash)")
 
         msg_repo = MessageRepo(session)
-        original = await msg_repo.get_by_hash(target_hash)
-        if not original:
-            raise MessageError(f"Target message {target_hash} not found")
-        if original.channel_id != envelope.channel_id:
-            raise MessageError("Target message does not belong to this channel")
+        await self._require_target_in_channel(session, target_hash, envelope.channel_id)
 
         result = await msg_repo.soft_delete(target_hash, envelope.sender_hash)
 
@@ -452,9 +460,7 @@ class MessageProcessor:
             raise MessageError("Pin requires reply_to (target message hash)")
 
         msg_repo = MessageRepo(session)
-        original = await msg_repo.get_by_hash(target_hash)
-        if not original:
-            raise MessageError(f"Target message {target_hash} not found")
+        original = await self._require_target_in_channel(session, target_hash, envelope.channel_id)
 
         # Toggle pin state
         new_pinned = not original.pinned
@@ -498,12 +504,7 @@ class MessageProcessor:
         if not target_hash:
             raise MessageError("Reaction requires reply_to (target message hash)")
 
-        msg_repo = MessageRepo(session)
-        original = await msg_repo.get_by_hash(target_hash)
-        if not original:
-            raise MessageError(f"Target message {target_hash} not found")
-        if original.channel_id != envelope.channel_id:
-            raise MessageError("Target message does not belong to this channel")
+        original = await self._require_target_in_channel(session, target_hash, envelope.channel_id)
 
         emoji = envelope.body
         if not emoji:

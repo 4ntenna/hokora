@@ -199,3 +199,21 @@ class TestKeyRotationManager:
     def test_is_in_grace_period_unknown(self):
         mgr = KeyRotationManager()
         assert mgr.is_in_grace_period("unknown") is False
+
+
+class TestKeyRotationCleanup:
+    def test_expired_rotation_cleaned_up(self):
+        mgr = KeyRotationManager()
+        mgr._pending_rotations["ch1"] = {
+            "grace_end": time.time() - 1,  # already expired
+        }
+        assert mgr.is_in_grace_period("ch1") is False
+        assert "ch1" not in mgr._pending_rotations
+
+    def test_grace_period_true_when_active(self):
+        mgr = KeyRotationManager()
+        mgr._pending_rotations["ch2"] = {
+            "grace_end": time.time() + 3600,  # still active
+        }
+        assert mgr.is_in_grace_period("ch2") is True
+        assert "ch2" in mgr._pending_rotations

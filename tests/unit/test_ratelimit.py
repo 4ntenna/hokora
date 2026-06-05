@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
+from hokora.constants import MAX_RATE_LIMIT_BUCKETS
 from hokora.security.ratelimit import RateLimiter, TokenBucket
 from hokora.exceptions import RateLimitExceeded
 
@@ -77,3 +78,27 @@ class TestRateLimiter:
         # All buckets are fresh — new identity should be rejected
         with pytest.raises(RateLimitExceeded, match="Too many tracked"):
             limiter.check_rate_limit("overflow_user")
+
+
+class TestSlowmodeDictCapped:
+    """Verify _slowmode_last is capped at MAX_BUCKETS."""
+
+    def test_slowmode_dict_capped(self):
+        limiter = RateLimiter()
+        # Fill slowmode dict to capacity with stale entries
+        now = time.time()
+        for i in range(MAX_RATE_LIMIT_BUCKETS):
+            limiter._slowmode_last[f"id_{i}:ch_{i}"] = now - 700  # stale (>600s)
+
+        # Next check should trigger cleanup and succeed
+        limiter.check_slowmode("new_id", "new_ch", 5)
+        assert len(limiter._slowmode_last) < MAX_RATE_LIMIT_BUCKETS + 1
+
+    def test_slowmode_cap_raises_when_all_fresh(self):
+        limiter = RateLimiter()
+        now = time.time()
+        for i in range(MAX_RATE_LIMIT_BUCKETS):
+            limiter._slowmode_last[f"id_{i}:ch_{i}"] = now  # all fresh
+
+        with pytest.raises(RateLimitExceeded, match="Too many tracked slowmode"):
+            limiter.check_slowmode("new_id", "new_ch", 5)
