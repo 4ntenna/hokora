@@ -20,8 +20,8 @@ We aim to acknowledge new reports within **72 hours** and provide a remediation 
 
 | Version | Supported |
 |---|---|
-| 0.1.x (current) | Security fixes for the active patch series |
-| Pre-0.1.0 | Not supported |
+| 0.2.x (current) | Security fixes for the active patch series |
+| Pre-0.2.0 | Not supported |
 
 Once 0.2 ships, 0.1.x will continue to receive critical security fixes for at least six months.
 

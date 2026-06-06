@@ -20,12 +20,18 @@ Returns a three-state result:
 
 The TOFU cache is the dict passed in (typically ``SyncState.identity_keys``).
 Mutations to the dict are reflected in shared state — no copy.
+
+The optional hooks let the engine persist pins and surface key-change
+warnings without duplicating TOFU logic at the two call sites:
+``on_new_key`` fires once per sender on first successful verification,
+``on_key_conflict`` when a cached pin no longer matches the wire key.
+Both default to ``None``, leaving the bare-dict call unchanged.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Callable, Optional
 
 from hokora.security.verification import VerificationService
 
@@ -35,6 +41,9 @@ logger = logging.getLogger(__name__)
 def verify_message_signature(
     msg: dict,
     identity_keys: dict[str, bytes],
+    *,
+    on_new_key: Optional[Callable[[str, bytes], None]] = None,
+    on_key_conflict: Optional[Callable[[str, bytes, bytes], None]] = None,
 ) -> Optional[bool]:
     """Verify a message wire dict's Ed25519 signature, with TOFU MITM check.
 
@@ -44,6 +53,12 @@ def verify_message_signature(
              ``sender_public_key``, ``lxmf_signature``, ``lxmf_signed_part``.
         identity_keys: shared TOFU cache (sender_hash → pubkey bytes).
                        Updated on first successful verification per sender.
+        on_new_key: called with ``(sender_hash, public_key)`` the first
+                    time a sender is pinned (write-through hook). May run
+                    on RNS threads.
+        on_key_conflict: called with ``(sender_hash, pinned_key,
+                         observed_key)`` when the cached pin differs from
+                         the wire key. May run on RNS threads.
 
     Returns:
         True / False / None as documented in the module docstring.
@@ -59,11 +74,16 @@ def verify_message_signature(
     cached = identity_keys.get(sender)
     if cached and cached != pub_key:
         logger.warning("PUBLIC KEY CHANGED for %s — possible MITM", sender)
+        if on_key_conflict is not None:
+            on_key_conflict(sender, cached, pub_key)
         return False
 
     verified = VerificationService.verify_ed25519_signature(pub_key, signed_part, sig)
     if verified:
+        was_new = not cached
         identity_keys[sender] = pub_key
+        if was_new and on_new_key is not None:
+            on_new_key(sender, pub_key)
     else:
         logger.warning("Signature verification FAILED for msg %s", msg.get("msg_hash"))
     return verified

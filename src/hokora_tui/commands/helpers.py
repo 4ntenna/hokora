@@ -55,6 +55,11 @@ def ensure_sync_engine(app: "HokoraTUI") -> None:
         except Exception:
             logger.debug("sync cursor restore failed in ensure_sync_engine", exc_info=True)
 
+    # Hydrate TOFU pins + (re)wire the hooks here too, so the lazy
+    # engine-creation path (/local, /connect) gets the same treatment
+    # as cursors.
+    app._wire_tofu_callbacks()
+
     engine.set_message_callback(
         lambda channel_id, messages, latest_seq: cb.on_messages(
             app, channel_id, messages, latest_seq

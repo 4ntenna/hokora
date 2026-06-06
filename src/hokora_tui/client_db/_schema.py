@@ -7,7 +7,9 @@ Every additive migration is idempotent — ``ALTER TABLE ADD COLUMN`` guards
 with a ``PRAGMA table_info`` check so re-running a migrator on a
 half-migrated DB is safe.
 
-Current head: v8 — adds sealed-channel envelope columns
+Current head: v9 — adds ``tofu_keys`` for persisted client-side TOFU
+pins (sender hash → Ed25519 public key) so key-change detection
+survives client restarts. v8 added sealed-channel envelope columns
 (``messages.encrypted_body`` / ``encryption_nonce`` / ``encryption_epoch``)
 plus ``sealed_keys`` for at-rest sealed-channel encryption parity with
 the daemon.
@@ -18,7 +20,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 _INIT_SQL = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -136,6 +138,13 @@ CREATE TABLE IF NOT EXISTS sealed_keys (
     epoch INTEGER NOT NULL,
     updated_at REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS tofu_keys (
+    sender_hash TEXT PRIMARY KEY,
+    public_key BLOB NOT NULL,
+    first_seen REAL NOT NULL,
+    updated_at REAL NOT NULL
+);
 """
 
 
@@ -219,6 +228,11 @@ class SchemaMigrator:
                 self._conn.execute("ALTER TABLE messages ADD COLUMN encryption_nonce BLOB")
             if "encryption_epoch" not in msg_cols:
                 self._conn.execute("ALTER TABLE messages ADD COLUMN encryption_epoch INTEGER")
+
+        # v8 → v9: persisted client-side TOFU pins. ``tofu_keys`` covered
+        # by CREATE IF NOT EXISTS in _INIT_SQL above; no column ALTERs.
+        if current < 9:
+            pass
 
         self._set_version(SCHEMA_VERSION)
         self._conn.commit()

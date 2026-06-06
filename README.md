@@ -41,7 +41,7 @@ Hokora runs over the [Reticulum](https://reticulum.network/) network stack and t
 
 | Item | Value |
 |---|---|
-| Version | 0.1.0 |
+| Version | 0.2.0 |
 | Python | 3.10, 3.11, 3.12, 3.13 |
 | Reticulum | ≥ 1.3.5, < 2.0 |
 | LXMF | ≥ 1.0.1, < 2.0 |

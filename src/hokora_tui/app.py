@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Main application class for Hokora TUI v2."""
+"""Main application class for the Hokora TUI."""
 
 from __future__ import annotations
 
@@ -341,9 +341,65 @@ class HokoraTUI:
                     logging.getLogger(__name__).debug(
                         "failed to wire sealed-key callback", exc_info=True
                     )
+            self._wire_tofu_callbacks()
         except Exception:
             # Non-fatal — TUI works without sync engine.
             logging.getLogger(__name__).debug("sync engine init failed", exc_info=True)
+
+    def _wire_tofu_callbacks(self) -> None:
+        """Hydrate persisted TOFU pins and wire the write-through + warning hooks.
+
+        Idempotent; called from both engine-creation paths
+        (``_init_sync_engine`` and ``ensure_sync_engine``) and a no-op
+        without an engine or client DB.
+        """
+        if self.sync_engine is None or self.db is None:
+            return
+        engine = self.sync_engine
+        try:
+            pinned = self.db.tofu_keys.all_keys()
+            if pinned:
+                engine.update_identity_keys(pinned)
+        except Exception:
+            logging.getLogger(__name__).debug("failed to restore TOFU pins", exc_info=True)
+        engine.set_tofu_new_key_callback(self._persist_tofu_pin)
+        engine.set_tofu_key_conflict_callback(self._on_tofu_conflict)
+
+    def _persist_tofu_pin(self, sender_hash: str, public_key: bytes) -> None:
+        """Write-through for newly pinned TOFU keys (fires on RNS threads).
+
+        Resolves ``self.db`` late so the hook always targets the current
+        client DB even after a cache clear re-opens it.
+        """
+        if self.db is not None:
+            self.db.tofu_keys.insert_if_absent(sender_hash, public_key)
+
+    def _on_tofu_conflict(self, sender_hash: str, pinned: bytes, observed: bytes) -> None:
+        """Log a TOFU key change and raise one status warning per sender.
+
+        Runs on RNS threads, so the notice is marshalled to the urwid
+        loop. The message is already marked unverified by the verify
+        chokepoint; this just makes the event visible.
+        """
+        engine = self.sync_engine
+        if engine is None or not engine.note_tofu_warning(sender_hash):
+            return
+        logging.getLogger(__name__).warning(
+            "TOFU key change for sender %s; possible MITM, /forget-key to reset",
+            sender_hash,
+        )
+        short = sender_hash[:16]
+
+        def _warn(*_args: object) -> None:
+            self.status.set_notice(
+                f"Key changed for {short}; possible MITM. /forget-key to reset",
+                level="warn",
+                duration=10.0,
+            )
+
+        if self.loop is not None:
+            self.loop.set_alarm_in(0, _warn)
+            self._wake_loop()
 
     def _init_client_db(self) -> None:
         """Initialize the client-side SQLite cache (SQLCipher-encrypted).
@@ -886,7 +942,7 @@ class HokoraTUI:
 
 
 def main() -> None:
-    """Entry point for the TUI v2."""
+    """Entry point for the TUI."""
     app = HokoraTUI()
     app.run()
 

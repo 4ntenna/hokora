@@ -98,6 +98,11 @@ class SyncEngine:
         # App registers this to wire daemon-served sealed keys into the
         # TUI's SealedKeyStore for at-rest envelope encryption.
         self._on_sealed_key: Optional[Callable[[str, bytes, int], None]] = None
+        # TOFU hooks: write-through on first pin, warning on key change.
+        # App registers both after construction; they fire on RNS threads
+        # and must be self-contained.
+        self._on_tofu_new_key: Optional[Callable[[str, bytes], None]] = None
+        self._on_tofu_key_conflict: Optional[Callable[[str, bytes, bytes], None]] = None
         # DM + CDSP subsystems.
         self._dm_router = DmRouter(identity, data_dir, self._state)
         self._cdsp = CdspClient(self._link_manager, self._dm_router, self._state)
@@ -109,6 +114,8 @@ class SyncEngine:
             self._verifier,
             response_dispatcher=self._handle_response,
             event_callback_getter=lambda: self._event_callback,
+            on_new_key=self._dispatch_tofu_new_key,
+            on_key_conflict=self._dispatch_tofu_key_conflict,
         )
         self._queries = QueryClient(self._link_manager, self._state)
         self._invites = InviteClient(self._link_manager, self._state)
@@ -185,6 +192,54 @@ class SyncEngine:
         """
         self._on_sealed_key = callback
 
+    def set_tofu_new_key_callback(self, callback: Callable[[str, bytes], None]) -> None:
+        """Register the TOFU write-through callback.
+
+        Fired with ``(sender_hash, public_key)`` the first time a sender
+        is pinned. App wires this to the TofuKeyStore so pins survive
+        restarts; it runs on RNS threads, where the store's lock keeps it
+        safe.
+        """
+        self._on_tofu_new_key = callback
+
+    def set_tofu_key_conflict_callback(self, callback: Callable[[str, bytes, bytes], None]) -> None:
+        """Register the TOFU key-change callback.
+
+        Fired with ``(sender_hash, pinned_key, observed_key)`` when a
+        sender's wire key no longer matches the pin. Runs on RNS threads,
+        so the handler must marshal any UI work to the urwid loop.
+        """
+        self._on_tofu_key_conflict = callback
+
+    # ── TOFU hook trampolines ────────────────────────────────────────────
+    # Exception-safe dispatch shared by both verify call sites (history via
+    # constructor injection, live via the *_hook properties): a persistence
+    # or warning failure must never break verification.
+
+    def _dispatch_tofu_new_key(self, sender_hash: str, public_key: bytes) -> None:
+        if self._on_tofu_new_key is not None:
+            try:
+                self._on_tofu_new_key(sender_hash, public_key)
+            except Exception:
+                logger.exception("TOFU new-key callback raised")
+
+    def _dispatch_tofu_key_conflict(self, sender_hash: str, pinned: bytes, observed: bytes) -> None:
+        if self._on_tofu_key_conflict is not None:
+            try:
+                self._on_tofu_key_conflict(sender_hash, pinned, observed)
+            except Exception:
+                logger.exception("TOFU key-conflict callback raised")
+
+    @property
+    def tofu_new_key_hook(self) -> Callable[[str, bytes], None]:
+        """Engine-owned first-pin hook for ``verify_message_signature``."""
+        return self._dispatch_tofu_new_key
+
+    @property
+    def tofu_key_conflict_hook(self) -> Callable[[str, bytes, bytes], None]:
+        """Engine-owned key-change hook for ``verify_message_signature``."""
+        return self._dispatch_tofu_key_conflict
+
     def set_connected_callback(self, callback: Callable):
         """Register a callback fired when an RNS link is established.
 
@@ -207,6 +262,32 @@ class SyncEngine:
     def update_cursors(self, cursors: dict[str, int]) -> None:
         """Bulk-update cursors (e.g. from persisted client DB on startup)."""
         self._state.cursors.update(cursors)
+
+    # TOFU pins (sender pubkey cache).
+    def update_identity_keys(self, keys: dict[str, bytes]) -> None:
+        """Bulk-load persisted TOFU pins (from the client DB on startup)."""
+        self._state.identity_keys.update(keys)
+
+    def forget_identity_key(self, sender_hash: str) -> bool:
+        """Drop a pinned sender pubkey from the in-memory TOFU cache.
+
+        The ``/forget-key`` reset path (persistent side handled by the
+        command). Also clears the warn-dedup entry so a later genuine
+        key change re-warns. Returns True if a pin was removed.
+        """
+        self._state.tofu_warned.discard(sender_hash)
+        return self._state.identity_keys.pop(sender_hash, None) is not None
+
+    def note_tofu_warning(self, sender_hash: str) -> bool:
+        """Test-and-set the session warn-dedup for a sender.
+
+        Returns True the first time a sender is flagged this session
+        (caller should warn); False on repeats.
+        """
+        if sender_hash in self._state.tofu_warned:
+            return False
+        self._state.tofu_warned.add(sender_hash)
+        return True
 
     def clear_cursors(self) -> None:
         """Drop all sync cursors — used on disconnect or manual reset."""
@@ -274,7 +355,7 @@ class SyncEngine:
             return False
 
     def cache_identity_key(self, identity_hash: str, public_key_bytes: bytes):
-        """Cache a sender's public key for signature verification."""
+        """Seed the in-memory TOFU cache (first-write-wins; test/seed aid)."""
         self._history.cache_identity_key(identity_hash, public_key_bytes)
 
     @property

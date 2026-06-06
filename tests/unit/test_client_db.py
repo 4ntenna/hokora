@@ -409,3 +409,38 @@ class TestSchema:
             assert bm["destination_hash"] == "destABC"
         finally:
             migrated.close()
+
+    def test_migration_v8_to_v9_adds_tofu_keys(self, tmp_path):
+        """Simulate a v8 DB and verify v9 adds the tofu_keys table."""
+        db_path = tmp_path / "v8.db"
+        conn = sqlite3.connect(str(db_path))
+        conn.executescript("""
+            CREATE TABLE sealed_keys (
+                channel_id TEXT PRIMARY KEY,
+                key BLOB NOT NULL,
+                epoch INTEGER NOT NULL,
+                updated_at REAL NOT NULL
+            );
+            CREATE TABLE schema_version (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                version INTEGER NOT NULL
+            );
+            INSERT INTO sealed_keys (channel_id, key, epoch, updated_at)
+                VALUES ('ch1', x'aa', 1, 0.0);
+            INSERT INTO schema_version (id, version) VALUES (1, 8);
+        """)
+        conn.commit()
+        conn.close()
+
+        migrated = ClientDB(db_path, encrypt=False)
+        try:
+            assert migrated._get_schema_version() == ClientDB._SCHEMA_VERSION
+
+            # tofu_keys table must exist and be functional.
+            migrated.tofu_keys.insert_if_absent("a" * 64, b"\x01" * 32)
+            assert migrated.tofu_keys.get("a" * 64) == b"\x01" * 32
+
+            # Pre-existing v8 data preserved.
+            assert migrated.sealed_keys.get("ch1") is not None
+        finally:
+            migrated.close()

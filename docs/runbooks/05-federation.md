@@ -108,6 +108,8 @@ DELETE FROM peers WHERE identity_hash = '<hex>';
 sudo systemctl restart hokorad
 ```
 
+TUI clients keep their own client-side TOFU pins (sender hash → Ed25519 key), persisted in the encrypted client cache so key-change detection survives restarts. A pinned-key mismatch marks the message `[UNVERIFIED]` and raises a one-time `[warn]` status notice; after verifying the change out of band, reset the pin with `/forget-key <sender_hash>` inside the TUI.
+
 ## Forward-secret epochs
 
 Once the handshake establishes trust, every message on the federation link is encrypted under the current epoch's XChaCha20-Poly1305 key.
