@@ -2,4 +2,4 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 """Hokora — Federated encrypted social platform on Reticulum/LXMF."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

@@ -5,7 +5,7 @@
 The ``ClientDB`` facade exposes a flat public API for backward
 compatibility; direct sub-store access (``db.messages``,
 ``db.channels``, ...) is also available for code that wants
-namespacing. Internally the facade delegates to eight
+namespacing. Internally the facade delegates to ten
 single-responsibility stores.
 """
 

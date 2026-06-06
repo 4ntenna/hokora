@@ -48,9 +48,9 @@ def dispatch_event(app: "HokoraTUI", event_type: str, data) -> None:
         msg = data
         channel_id = msg.get("channel_id")
         if channel_id:
-            # TUI-side Ed25519 verification on the live path. Same chokepoint
-            # used by HistoryClient.handle_history — consistent TOFU MITM
-            # detection across both paths. Three-state result:
+            # TUI-side Ed25519 verification on the live path, through the
+            # same chokepoint (and TOFU hooks) as HistoryClient.handle_history.
+            # Three-state result:
             #   True  → store verified=1 (cryptographic check passed).
             #   False → store verified=0 (failed sig OR TOFU mismatch).
             #   None  → no sig material on the wire; leave the field unset
@@ -58,7 +58,12 @@ def dispatch_event(app: "HokoraTUI", event_type: str, data) -> None:
             #           honestly renders [UNVERIFIED].
             engine = getattr(app, "sync_engine", None)
             if engine is not None:
-                verified = verify_message_signature(msg, engine.identity_keys)
+                verified = verify_message_signature(
+                    msg,
+                    engine.identity_keys,
+                    on_new_key=engine.tofu_new_key_hook,
+                    on_key_conflict=engine.tofu_key_conflict_hook,
+                )
                 if verified is not None:
                     msg["verified"] = verified
             cb.on_messages(app, channel_id, [msg], msg.get("seq", 0))

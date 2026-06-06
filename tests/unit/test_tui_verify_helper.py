@@ -96,3 +96,69 @@ class TestVerifyMessageSignature:
         msg2["sender_hash"] = msg["sender_hash"]
         msg2["sender_public_key"] = b"\x11" * 32
         assert verify_message_signature(msg2, cache) is False
+
+
+class TestVerifyHooks:
+    """The optional write-through / key-change hooks on the chokepoint."""
+
+    def test_on_new_key_fired_on_first_verify(self):
+        msg, pk = _signed_msg()
+        cache: dict[str, bytes] = {}
+        seen: list[tuple[str, bytes]] = []
+        assert (
+            verify_message_signature(msg, cache, on_new_key=lambda s, k: seen.append((s, k)))
+            is True
+        )
+        assert seen == [(msg["sender_hash"], pk)]
+
+    def test_on_new_key_not_fired_on_second_verify(self):
+        msg, pk = _signed_msg()
+        cache: dict[str, bytes] = {}
+        seen: list[tuple[str, bytes]] = []
+        hook = lambda s, k: seen.append((s, k))  # noqa: E731
+        verify_message_signature(msg, cache, on_new_key=hook)
+        verify_message_signature(msg, cache, on_new_key=hook)
+        assert len(seen) == 1
+
+    def test_on_new_key_not_fired_on_bad_sig(self):
+        msg, _ = _signed_msg()
+        msg["lxmf_signature"] = b"\x00" * 64
+        seen: list[tuple[str, bytes]] = []
+        verify_message_signature(msg, {}, on_new_key=lambda s, k: seen.append((s, k)))
+        assert seen == []
+
+    def test_on_key_conflict_fired_on_mismatch(self):
+        msg, pk = _signed_msg()
+        pinned = b"\xff" * 32
+        cache = {msg["sender_hash"]: pinned}
+        conflicts: list[tuple[str, bytes, bytes]] = []
+        result = verify_message_signature(
+            msg,
+            cache,
+            on_key_conflict=lambda s, old, new: conflicts.append((s, old, new)),
+        )
+        assert result is False
+        assert conflicts == [(msg["sender_hash"], pinned, pk)]
+        # Pin must be preserved on conflict.
+        assert cache[msg["sender_hash"]] == pinned
+
+    def test_on_key_conflict_not_fired_on_match(self):
+        msg, pk = _signed_msg()
+        cache = {msg["sender_hash"]: pk}
+        conflicts: list[tuple[str, bytes, bytes]] = []
+        assert (
+            verify_message_signature(
+                msg,
+                cache,
+                on_key_conflict=lambda s, old, new: conflicts.append((s, old, new)),
+            )
+            is True
+        )
+        assert conflicts == []
+
+    def test_bare_dict_call_unchanged(self):
+        """Regression: calling without hooks behaves exactly as before."""
+        msg, pk = _signed_msg()
+        cache: dict[str, bytes] = {}
+        assert verify_message_signature(msg, cache) is True
+        assert cache[msg["sender_hash"]] == pk

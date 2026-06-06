@@ -112,3 +112,57 @@ class TestLiveMessageVerification:
                 dispatch_event(app, "message", msg)
                 assert msg["verified"] is True
                 mock_on.assert_called_once()
+
+    def test_live_path_passes_engine_tofu_hooks(self):
+        """The live path must thread the engine's TOFU hooks into the
+        verify chokepoint so persisted-pin write-through and key-change
+        warnings cover live messages, not just history sync. Behavioral:
+        invoking the passed hooks must reach the engine's hook objects
+        (identity of a property-returned bound method is not stable, so
+        ``is`` checks would be meaningless against a real engine).
+        """
+        app = _make_app()
+        msg = _signed_msg()
+        with patch("hokora_tui.commands.event_dispatcher.cb.on_messages"):
+            with patch(
+                "hokora_tui.commands.event_dispatcher.verify_message_signature",
+                return_value=True,
+            ) as mock_verify:
+                dispatch_event(app, "message", msg)
+                kwargs = mock_verify.call_args.kwargs
+                kwargs["on_new_key"]("s" * 32, b"\x01" * 32)
+                app.sync_engine.tofu_new_key_hook.assert_called_once_with("s" * 32, b"\x01" * 32)
+                kwargs["on_key_conflict"]("s" * 32, b"\x01" * 32, b"\x02" * 32)
+                app.sync_engine.tofu_key_conflict_hook.assert_called_once_with(
+                    "s" * 32, b"\x01" * 32, b"\x02" * 32
+                )
+
+    def test_live_path_key_conflict_fires_registered_callback(self):
+        """End-to-end through a REAL engine: a live message whose key
+        mismatches the pinned key must fire the registered conflict
+        callback and mark the message unverified."""
+        from hokora_tui.sync_engine import SyncEngine
+
+        with (
+            patch("hokora_tui.sync_engine.RNS"),
+            patch("hokora_tui.sync.link_manager.RNS"),
+            patch("hokora_tui.sync.dm_router.RNS"),
+            patch("hokora_tui.sync_engine.LXMF"),
+            patch("hokora_tui.sync.dm_router.LXMF"),
+        ):
+            engine = SyncEngine(MagicMock(), MagicMock())
+        engine._dm_router._lxm_router = MagicMock()
+
+        msg = _signed_msg()
+        pinned = b"\xff" * 32
+        engine.update_identity_keys({msg["sender_hash"]: pinned})
+        conflict = MagicMock()
+        engine.set_tofu_key_conflict_callback(conflict)
+
+        app = MagicMock()
+        app.sync_engine = engine
+        with patch("hokora_tui.commands.event_dispatcher.cb.on_messages"):
+            dispatch_event(app, "message", msg)
+
+        assert msg["verified"] is False
+        conflict.assert_called_once_with(msg["sender_hash"], pinned, msg["sender_public_key"])

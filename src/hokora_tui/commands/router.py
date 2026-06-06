@@ -36,7 +36,7 @@ class CommandRouter:
     def register_builtins(self) -> None:
         """Construct + register the built-in commands.
 
-        All 17 /commands flow through CommandRouter.
+        All 18 /commands flow through CommandRouter.
         """
         from hokora_tui.commands.clear_command import ClearCommand
         from hokora_tui.commands.connect_command import ConnectCommand
@@ -44,6 +44,7 @@ class CommandRouter:
         from hokora_tui.commands.dm_command import DmCommand
         from hokora_tui.commands.dms_command import DmsCommand
         from hokora_tui.commands.download_command import DownloadCommand
+        from hokora_tui.commands.forget_key_command import ForgetKeyCommand
         from hokora_tui.commands.help_command import HelpCommand
         from hokora_tui.commands.invite_command import InviteCommand
         from hokora_tui.commands.local_command import LocalCommand
@@ -74,6 +75,7 @@ class CommandRouter:
         self.register(MembersCommand())
         self.register(UploadCommand())
         self.register(DownloadCommand())
+        self.register(ForgetKeyCommand())
 
     def known_commands(self) -> list[Command]:
         """Distinct registered Commands (not duplicated by alias)."""

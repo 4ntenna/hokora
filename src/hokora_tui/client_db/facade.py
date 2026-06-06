@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
 # SPDX-License-Identifier: AGPL-3.0-only
-"""ClientDB facade: stable public surface delegating to 8 specialised stores.
+"""ClientDB facade: stable public surface delegating to 10 specialised stores.
 
 Stores share one ``sqlite3.Connection`` + one ``threading.Lock``;
 store boundaries are logical cohesion, not transactional isolation.
@@ -29,12 +29,13 @@ from hokora_tui.client_db.identities import IdentityStore
 from hokora_tui.client_db.messages import MessageStore
 from hokora_tui.client_db.sealed_keys import SealedKeyStore
 from hokora_tui.client_db.settings import SettingsStore
+from hokora_tui.client_db.tofu_keys import TofuKeyStore
 
 logger = logging.getLogger(__name__)
 
 
 class ClientDB:
-    """Local SQLite cache for the TUI v2 client (facade over 8 stores)."""
+    """Local SQLite cache for the TUI client (facade over 10 stores)."""
 
     # Kept on the facade for back-compat with callers that peek at it.
     _SCHEMA_VERSION = SCHEMA_VERSION
@@ -96,6 +97,7 @@ class ClientDB:
         self.discovery = DiscoveryStore(self.conn, self._write_lock, self._tx_state)
         self.dms = DmStore(self.conn, self._write_lock, self._tx_state)
         self.sealed_keys = SealedKeyStore(self.conn, self._write_lock, self._tx_state)
+        self.tofu_keys = TofuKeyStore(self.conn, self._write_lock, self._tx_state)
 
     @contextmanager
     def transaction(self) -> Iterator["ClientDB"]:

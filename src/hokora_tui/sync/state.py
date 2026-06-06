@@ -62,6 +62,9 @@ class SyncState:
     # ── Identity cache for signature verification ──────────────────────
     # identity_hash_hex -> public_key_bytes
     identity_keys: dict[str, bytes] = field(default_factory=dict)
+    # Senders already flagged for a TOFU key change this session
+    # (warn-dedup only; never persisted)
+    tofu_warned: set[str] = field(default_factory=set)
 
     # ── Display / identity ─────────────────────────────────────────────
     display_name: Optional[str] = None

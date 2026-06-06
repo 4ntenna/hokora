@@ -63,6 +63,9 @@ class HistoryClient:
         verifier: VerificationService,
         response_dispatcher: Callable[[dict], None],
         event_callback_getter: Callable[[], Optional[Callable]],
+        *,
+        on_new_key: Optional[Callable[[str, bytes], None]] = None,
+        on_key_conflict: Optional[Callable[[str, bytes, bytes], None]] = None,
     ) -> None:
         self._link_manager = link_manager
         self._state = state
@@ -73,6 +76,10 @@ class HistoryClient:
         # Callable that returns the currently-registered event_callback on
         # SyncEngine. Called lazily so late-set callbacks are honored.
         self._event_cb = event_callback_getter
+        # TOFU hooks forwarded to verify_message_signature: write-through
+        # on first pin / warning on pin mismatch. Fire on RNS threads.
+        self._on_new_key = on_new_key
+        self._on_key_conflict = on_key_conflict
 
     # ── Sync requests ─────────────────────────────────────────────────
 
@@ -175,7 +182,13 @@ class HistoryClient:
         return self._state.seq_warnings.get(channel_id, [])
 
     def cache_identity_key(self, identity_hash: str, public_key_bytes: bytes) -> None:
-        self._state.identity_keys[identity_hash] = public_key_bytes
+        """Seed the in-memory TOFU cache (first-write-wins; test/seed aid).
+
+        Never overwrites an existing pin; replacing one must go through
+        ``forget_identity_key`` plus re-verification so memory and the
+        store cannot diverge. Not wired to any network path.
+        """
+        self._state.identity_keys.setdefault(identity_hash, public_key_bytes)
 
     # ── Response handlers ────────────────────────────────────────────
 
@@ -194,7 +207,12 @@ class HistoryClient:
         # the live path treats None as "no opinion" and lets the storage
         # default apply.
         for msg in messages:
-            verified = verify_message_signature(msg, self._state.identity_keys)
+            verified = verify_message_signature(
+                msg,
+                self._state.identity_keys,
+                on_new_key=self._on_new_key,
+                on_key_conflict=self._on_key_conflict,
+            )
             msg["verified"] = bool(verified)
 
         # Sequence integrity check [MANDATORY]

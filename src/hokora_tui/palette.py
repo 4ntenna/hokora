@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 4ntenna <4ntenn@proton.me>, The Hokora Project
 # SPDX-License-Identifier: AGPL-3.0-only
-"""Dark theme color palette for the Hokora TUI v2."""
+"""Dark theme color palette for the Hokora TUI."""
 
 from __future__ import annotations
 

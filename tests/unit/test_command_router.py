@@ -121,7 +121,7 @@ class TestDispatch:
 
 
 class TestRegisterBuiltins:
-    def test_registers_all_17_commands(self, router):
+    def test_registers_all_18_commands(self, router):
         """Every /command is routed via CommandRouter."""
         router.register_builtins()
         names = {cmd.name for cmd in router.known_commands()}
@@ -143,6 +143,7 @@ class TestRegisterBuiltins:
             "members",
             "upload",
             "download",
+            "forget-key",
         }
 
     def test_quit_alias_q_registered(self, router):
